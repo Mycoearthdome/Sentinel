@@ -207,6 +207,28 @@ def load_suspicious_ips() -> set:
     except Exception:
         return set()
 
+def add_suspicious_ip(ip: str) -> None:
+    """Append an IP to the suspicious list JSON file if not already present."""
+    try:
+        if os.path.exists(SUSPICIOUS_IPS_FILE):
+            with open(SUSPICIOUS_IPS_FILE, "r+", encoding="utf-8") as f:
+                try:
+                    data = json.load(f)
+                    if not isinstance(data, list):
+                        data = []
+                except Exception:
+                    data = []
+                if ip not in data:
+                    data.append(ip)
+                    f.seek(0)
+                    json.dump(data, f, indent=2)
+                    f.truncate()
+        else:
+            with open(SUSPICIOUS_IPS_FILE, "w", encoding="utf-8") as f:
+                json.dump([ip], f, indent=2)
+    except Exception:
+        pass
+
 def check_network_patterns(report: SentinelReport):
     bad_ips = load_suspicious_ips()
     if not bad_ips:
@@ -359,6 +381,8 @@ def block_remote_ips(pid: int, report: SentinelReport):
                     _, status = os.waitpid(child, 0)
                     if status != 0:
                         report.add("iptables error", ip)
+                    else:
+                        add_suspicious_ip(ip)
     except Exception as e:
         report.add("block ip error", f"PID {pid}: {e}")
 
