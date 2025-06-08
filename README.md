@@ -73,6 +73,8 @@ A C implementation replicates the heuristic checks and logs results to syslog. B
 ```
 
 When run as root the script copies `sentinelroot` to `/usr/local/bin` and enables a `sentinelroot` systemd service.
+The installation also deploys `sentinelboot`, which verifies the contents of
+`/boot` on every startup and restores any modified files from a database.
 
 ## External Scanner Integration
 
