@@ -288,11 +288,16 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
 
     scanners = {
         "rkhunter": ["rkhunter", "--check", "--skip-keypress", "--rwo"],
-        "gmer": ["wine", "gmer.exe"],
-        "icesword": ["wine", "icesword.exe"],
+        "chkrootkit": ["chkrootkit", "-q"],
+        "lynis": ["lynis", "audit", "system", "-Q"],
+        "maldet": ["maldet", "-b", "-r", "/"],
     }
+    ossec_rc = shutil.which("ossec-rootcheck") or "/var/ossec/bin/ossec-rootcheck"
+    if os.path.exists(ossec_rc):
+        scanners["ossec-rootcheck"] = [ossec_rc]
     for name, cmd in scanners.items():
-        if not shutil.which(cmd[0]):
+        exe = cmd[0]
+        if not shutil.which(exe) and not os.path.exists(exe):
             report.add(f"{name} not found", "")
             continue
         try:

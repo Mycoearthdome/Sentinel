@@ -18,8 +18,24 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 - **Extensible architecture** where results from heuristics can be passed to a machine learning model for further classification.
 - Can automatically remove modules or kill processes when their names match
   known malicious signatures.
-- On the first run the tool attempts to launch **rkhunter** (and, when available,
-  `gmer` or `icesword`) with their results forwarded to syslog for later review.
+- On the first run the tool attempts to launch **rkhunter**, **chkrootkit**,
+  **lynis**, **maldet** and the **OSSEC** rootcheck when available. The output
+  from these scanners is forwarded to syslog for later review.
+- Combining two or more of these tools (e.g. **rkhunter** with **maldet**, or
+  **lynis** with **OSSEC**) provides a stronger layered defense on Linux
+  systems.
+
+## Installation
+
+Run the provided `install.sh` script to build the C service and install all
+dependencies. The script detects `apt`, `yum`, `zypper` or `aptitude` and uses
+the available package manager to install `rkhunter`, `chkrootkit`, `lynis`,
+`maldet` and `ossec-hids` along with the Python modules from
+`requirements.txt`.
+
+```bash
+sudo ./install.sh
+```
 
 ## Python Heuristic Prototype Usage
 
@@ -56,7 +72,7 @@ When run as root the script copies `sentinelroot` to `/usr/local/bin` and enable
 
 ## External Scanner Integration
 
-On its first execution the Python module attempts to run [`rkhunter`](https://rkhunter.sourceforge.net/) to gather an additional baseline of rootkit indicators. If the Windows tools `gmer` or `icesword` are available through Wine they are executed as well. Output from these scanners is sent to syslog via the `logger` command and can be reviewed with `dmesg` or by inspecting `/var/log/syslog`.
+On its first execution the Python module attempts to run `rkhunter`, `chkrootkit`, `lynis`, `maldet` and the OSSEC rootcheck when these tools are installed. Output from these scanners is sent to syslog via the `logger` command and can be reviewed with `dmesg` or by inspecting `/var/log/syslog`.
 
 ## Training the ML Heuristic
 
@@ -96,7 +112,6 @@ This repository contains only a minimal proof-of-concept. The broader project go
 ## Upcoming Features
 
 - Improved automation around signature updates and ML model retraining.
-- Cross-platform support with optional parsing of output from Windows scanners like `gmer` and `icesword`.
 - More comprehensive integration with `rkhunter` including scheduled scans.
 
 ## Disclaimer
