@@ -21,6 +21,8 @@ EVIL_PROCESS_SIGNATURES.extend(load_signatures())
 EVIL_MODULE_SIGNATURES = ["evilmod", "badmodule"]
 import shutil
 
+LOG_TAG = "sentinelroot"
+
 @dataclass
 class DetectionResult:
     issue: str
@@ -31,7 +33,12 @@ class SentinelReport:
     results: List[DetectionResult] = field(default_factory=list)
 
     def add(self, issue: str, details: str):
+        message = f"{issue}: {details}"
         self.results.append(DetectionResult(issue, details))
+        try:
+            subprocess.run(["logger", "-t", LOG_TAG, message], check=False)
+        except Exception:
+            pass
 
     def summary(self) -> str:
         return "\n".join(f"{r.issue}: {r.details}" for r in self.results)

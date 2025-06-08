@@ -33,6 +33,10 @@ the available package manager to install `rkhunter`, `chkrootkit`, `lynis`,
 `maldet` and `ossec-hids` along with the Python modules from
 `requirements.txt`.
 
+All detections from the Python heuristics are automatically sent to syslog via
+the `logger` command using the tag `sentinelroot`.  Messages can be inspected
+with `dmesg` or in `/var/log/syslog`.
+
 ```bash
 sudo ./install.sh
 ```
@@ -72,7 +76,7 @@ When run as root the script copies `sentinelroot` to `/usr/local/bin` and enable
 
 ## External Scanner Integration
 
-On its first execution the Python module attempts to run `rkhunter`, `chkrootkit`, `lynis`, `maldet` and the OSSEC rootcheck when these tools are installed. Output from these scanners is sent to syslog via the `logger` command and can be reviewed with `dmesg` or by inspecting `/var/log/syslog`.
+On its first execution the Python module attempts to run [rkhunter](http://rkhunter.sourceforge.net/), [chkrootkit](http://www.chkrootkit.org/), [lynis](https://cisofy.com/lynis/), [maldet](https://www.rfxn.com/projects/linux-malware-detect/) and the [OSSEC](https://www.ossec.net/) rootcheck when these tools are installed. Output from these scanners is sent to syslog via the `logger` command and can be reviewed with `dmesg` or by inspecting `/var/log/syslog`.
 
 ## Training the ML Heuristic
 
