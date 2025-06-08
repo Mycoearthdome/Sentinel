@@ -12,9 +12,11 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 - Processes creating **raw sockets**.
 - Processes listening on suspicious ports such as `31337`.
 - Simple checks for persistence in files like `rc.local` or user shell profiles.
+- Detection of suspicious entries in systemd service files.
 - Command line inspection to flag processes launched with tools like `curl` or `nc`.
 - Resource monitoring for processes consuming excessive CPU or memory.
 - Reporting of processes whose names match known malicious signatures.
+- Alerts when processes connect to known malicious IP addresses.
 - **Extensible architecture** where results from heuristics can be passed to a machine learning model for further classification.
 - Can automatically remove modules or kill processes when their names match
   known malicious signatures.
@@ -116,7 +118,7 @@ database updated, which looks like the following:
 
 ## Project Goals
 
-This repository contains only a minimal proof-of-concept. The broader project goal is a full detection engine capable of analysing static binary features, kernel integrity hooks, system behaviour, persistence techniques and network patterns. Machine learning models such as gradient boosting (e.g. XGBoost) are intended to complement rule-based heuristics for higher accuracy.
+This repository contains only a minimal proof-of-concept. The broader project goal is a full detection engine capable of analysing static binary features, kernel integrity hooks, system behaviour, persistence techniques and network patterns. The latest prototype now inspects systemd services, monitors network connections against a list of malicious IPs and can analyse static binary features using a gradient boosting model powered by **XGBoost** when available. Machine learning models complement rule-based heuristics for higher accuracy.
 
 ## Upcoming Features
 
