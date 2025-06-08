@@ -1,0 +1,11 @@
+[Unit]
+Description=SentinelRoot Heuristic Monitor
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/sentinelroot
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
