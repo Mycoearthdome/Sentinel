@@ -16,8 +16,10 @@ EVIL_PROCESS_SIGNATURES.extend(load_signatures())
 EVIL_MODULE_SIGNATURES = ["evilmod", "badmodule"]
 from dataclasses import dataclass, field
 from typing import List
+from pathlib import Path
 from .ml import SignatureClassifier
 from .db import store_process, find_paths_by_checksum, load_signatures, PROCESS_DB
+import shutil
 
 @dataclass
 class DetectionResult:
@@ -267,6 +269,47 @@ def remove_evil_modules(report: SentinelReport):
             except Exception as e:
                 report.add("rmmod error", f"{mod}: {e}")
 
+
+def _log_lines(prefix: str, lines: List[str]):
+    """Send lines to syslog using the logger command."""
+    for line in lines:
+        try:
+            subprocess.run(["logger", "-t", prefix, line], check=True)
+        except Exception:
+            pass
+
+
+def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinelroot/first_run"):
+    """Run additional scanners like rkhunter on first execution."""
+    if os.path.exists(flag):
+        return
+    os.makedirs(os.path.dirname(flag), exist_ok=True)
+    Path(flag).touch()
+
+    scanners = {
+        "rkhunter": ["rkhunter", "--check", "--skip-keypress", "--rwo"],
+        "gmer": ["wine", "gmer.exe"],
+        "icesword": ["wine", "icesword.exe"],
+    }
+    for name, cmd in scanners.items():
+        if not shutil.which(cmd[0]):
+            report.add(f"{name} not found", "")
+            continue
+        try:
+            out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
+            lines = out.strip().splitlines()
+            _log_lines(f"sentinelroot-{name}", lines)
+            if lines:
+                report.add(f"{name} output", lines[0])
+        except Exception as e:
+            report.add(f"{name} error", str(e))
+
+    try:
+        dmesg_out = subprocess.check_output(["dmesg", "--ctime", "--since", "now-1min"], text=True)
+        _log_lines("sentinelroot-dmesg", dmesg_out.strip().splitlines())
+    except Exception:
+        pass
+
 def run_heuristics() -> SentinelReport:
     report = SentinelReport()
     check_ld_preload(report)
@@ -284,6 +327,7 @@ def run_heuristics() -> SentinelReport:
     kill_evil_processes(report)
     kill_priv_escalation_ports(report)
     remove_evil_modules(report)
+    run_external_scanners(report)
     return report
 
 def main():

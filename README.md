@@ -18,6 +18,8 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 - **Extensible architecture** where results from heuristics can be passed to a machine learning model for further classification.
 - Can automatically remove modules or kill processes when their names match
   known malicious signatures.
+- On the first run the tool attempts to launch **rkhunter** (and, when available,
+  `gmer` or `icesword`) with their results forwarded to syslog for later review.
 
 ## Python Heuristic Prototype Usage
 
@@ -52,6 +54,9 @@ A C implementation replicates the heuristic checks and logs results to syslog. B
 
 When run as root the script copies `sentinelroot` to `/usr/local/bin` and enables a `sentinelroot` systemd service.
 
+## External Scanner Integration
+
+On its first execution the Python module attempts to run [`rkhunter`](https://rkhunter.sourceforge.net/) to gather an additional baseline of rootkit indicators. If the Windows tools `gmer` or `icesword` are available through Wine they are executed as well. Output from these scanners is sent to syslog via the `logger` command and can be reviewed with `dmesg` or by inspecting `/var/log/syslog`.
 
 ## Training the ML Heuristic
 
@@ -87,6 +92,12 @@ database weekly with a cron job:
 ## Project Goals
 
 This repository contains only a minimal proof-of-concept. The broader project goal is a full detection engine capable of analysing static binary features, kernel integrity hooks, system behaviour, persistence techniques and network patterns. Machine learning models such as gradient boosting (e.g. XGBoost) are intended to complement rule-based heuristics for higher accuracy.
+
+## Upcoming Features
+
+- Improved automation around signature updates and ML model retraining.
+- Cross-platform support with optional parsing of output from Windows scanners like `gmer` and `icesword`.
+- More comprehensive integration with `rkhunter` including scheduled scans.
 
 ## Disclaimer
 
