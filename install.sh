@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-PKGS="rkhunter chkrootkit lynis maldet ossec-hids"
+PKGS="rkhunter chkrootkit lynis maldet ossec-hids clamav clamav-freshclam"
 
 if [ "$(id -u)" = "0" ]; then
     if command -v apt-get >/dev/null; then
