@@ -85,6 +85,21 @@ def check_raw_sockets(report: SentinelReport):
     except Exception as e:
         report.add("raw socket check error", str(e))
 
+def check_suspicious_ports(report: SentinelReport):
+    """Check for listening ports commonly used by malware."""
+    suspicious = {31337, 1337, 1338}
+    try:
+        for conn in psutil.net_connections(kind='inet'):
+            if conn.status == psutil.CONN_LISTEN and conn.laddr.port in suspicious:
+                pid = conn.pid
+                try:
+                    name = psutil.Process(pid).name() if pid else 'unknown'
+                except Exception:
+                    name = 'unknown'
+                report.add("Suspicious port", f"PID {pid} ({name}) listening on {conn.laddr.port}")
+    except Exception as e:
+        report.add("port check error", str(e))
+
 def check_persistence(report: SentinelReport):
     paths = [
         "/etc/rc.local",
@@ -136,6 +151,7 @@ def run_heuristics() -> SentinelReport:
     check_hidden_modules(report)
     check_hidden_processes(report)
     check_raw_sockets(report)
+    check_suspicious_ports(report)
     check_persistence(report)
     check_ml_signatures(report)
     return report

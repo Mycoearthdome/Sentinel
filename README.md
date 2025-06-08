@@ -10,6 +10,7 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 - Kernel modules hidden from `lsmod` output.
 - Processes present in `/proc` but not in the output of `ps`.
 - Processes creating **raw sockets**.
+- Processes listening on suspicious ports such as `31337`.
 - Simple checks for persistence in files like `rc.local` or user shell profiles.
 - **Extensible architecture** where results from heuristics can be passed to a machine learning model for further classification.
 
@@ -64,6 +65,9 @@ The CSV should include a `signature` column and optionally a `label` column.
 When the label is missing, all samples are considered malicious and the label is
 set to `1`. The trained model is stored as `signature_model.joblib` and used
 automatically by the main heuristic script when present.
+
+During training a **5-fold cross-validation** run is performed and the average
+F1 score is printed to give an indication of model accuracy.
 
 ## Project Goals
 
