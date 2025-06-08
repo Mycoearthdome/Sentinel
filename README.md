@@ -13,6 +13,8 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 - Processes listening on suspicious ports such as `31337`.
 - Simple checks for persistence in files like `rc.local` or user shell profiles.
 - **Extensible architecture** where results from heuristics can be passed to a machine learning model for further classification.
+- Can automatically remove modules or kill processes when their names match
+  known malicious signatures.
 
 ## Python Heuristic Prototype Usage
 
@@ -21,7 +23,10 @@ pip install -r requirements.txt
 python -m sentinelroot.sentinel
 ```
 
-The script prints a simple report with any suspicious findings. Elevated permissions may be required for full inspection.
+The script prints a simple report with any suspicious findings. When run as
+root it also attempts to kill processes or unload kernel modules whose names
+match known malicious signatures. Elevated permissions may therefore be
+required for full functionality.
 
 ## Command Line TUI
 
