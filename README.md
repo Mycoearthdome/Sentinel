@@ -34,18 +34,16 @@ python -m sentinelroot.tui
 Press `q` to exit the interface. This provides the same heuristic report as the
 standard Python script but in a fullscreen terminal view.
 
-## Qt Interface
+## C Service
 
-The repository also includes a lightweight Qt application that displays the same
-heuristic report in a GUI. To build it you need Qt 5 development packages and CMake:
+A C implementation replicates the heuristic checks and logs results to syslog. Build and install it using:`install.sh`:
 
 ```bash
-sudo apt-get install qtbase5-dev qtbase5-dev-tools
 ./install.sh
 ```
 
-Running `install.sh` will build the binary in `build/` and, if executed as root,
-copy `sentinelrootqt` to `/usr/local/bin`.
+When run as root the script copies `sentinelroot` to `/usr/local/bin` and enables a `sentinelroot` systemd service.
+
 
 ## Training the ML Heuristic
 
