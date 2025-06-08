@@ -12,13 +12,13 @@ import time
 # Start with built-in signatures but extend from the SQLite database when
 # available. This allows quick searches across distributions.
 EVIL_PROCESS_SIGNATURES = ["evilproc", "badproc"]
-EVIL_PROCESS_SIGNATURES.extend(load_signatures())
-EVIL_MODULE_SIGNATURES = ["evilmod", "badmodule"]
 from dataclasses import dataclass, field
 from typing import List
 from pathlib import Path
 from .ml import SignatureClassifier
 from .db import store_process, find_paths_by_checksum, load_signatures, PROCESS_DB
+EVIL_PROCESS_SIGNATURES.extend(load_signatures())
+EVIL_MODULE_SIGNATURES = ["evilmod", "badmodule"]
 import shutil
 
 @dataclass
@@ -195,6 +195,40 @@ def check_known_process_signatures(report: SentinelReport):
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
 
+def block_remote_ips(pid: int, report: SentinelReport):
+    """Block remote IPs associated with a PID using iptables."""
+    if os.geteuid() != 0:
+        return
+    try:
+        p = psutil.Process(pid)
+        for conn in p.connections(kind='inet'):
+            if conn.raddr:
+                ip = conn.raddr.ip
+                report.add("Blocked IP", ip)
+                child = os.fork()
+                if child == 0:
+                    rc = 0
+                    try:
+                        subprocess.run([
+                            "iptables",
+                            "-I",
+                            "INPUT",
+                            "-s",
+                            ip,
+                            "-j",
+                            "DROP",
+                        ], check=True)
+                    except Exception:
+                        rc = 1
+                    finally:
+                        os._exit(rc)
+                else:
+                    _, status = os.waitpid(child, 0)
+                    if status != 0:
+                        report.add("iptables error", ip)
+    except Exception as e:
+        report.add("block ip error", f"PID {pid}: {e}")
+
 def kill_evil_processes(report: SentinelReport):
     """Kill processes with names or paths matching known malicious signatures."""
     for proc in psutil.process_iter(['pid', 'name', 'exe']):
@@ -203,6 +237,7 @@ def kill_evil_processes(report: SentinelReport):
             exe = proc.info.get('exe') or ''
             target = name + ' ' + exe
             if any(sig in target for sig in EVIL_PROCESS_SIGNATURES):
+                block_remote_ips(proc.pid, report)
                 os.kill(proc.pid, signal.SIGKILL)
                 report.add("Killed process", f"PID {proc.pid}: {target.strip()}")
         except Exception as e:
@@ -237,7 +272,7 @@ def kill_priv_escalation_ports(report: SentinelReport):
     for proc in psutil.process_iter(['pid', 'uids', 'exe']):
         try:
             uids = proc.uids()
-            if uids.euid == 0 and uids.real != 0:
+            if uids.effective == 0 and uids.real != 0:
                 conns = proc.connections(kind='inet')
                 if any(c.status == psutil.CONN_LISTEN for c in conns):
                     exe = proc.info.get('exe') or ''
@@ -248,6 +283,7 @@ def kill_priv_escalation_ports(report: SentinelReport):
                         for p in paths:
                             if p != exe:
                                 report.add('Possible copy', p)
+                    block_remote_ips(proc.pid, report)
                     os.kill(proc.pid, signal.SIGKILL)
                     report.add('Killed priv esc', f'PID {proc.pid}: {exe}')
         except (psutil.NoSuchProcess, psutil.AccessDenied):
