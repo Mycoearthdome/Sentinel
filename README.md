@@ -7,8 +7,10 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 - **Heuristic checks** for common rootkit techniques such as:
   - Suspicious `LD_PRELOAD` usage via environment variables or `/etc/ld.so.preload`.
   - Processes executing binaries from transient locations like `/tmp`, `/dev` or `/run`.
-  - Kernel modules hidden from `lsmod` output.
-  - Processes present in `/proc` but not in the output of `ps`.
+- Kernel modules hidden from `lsmod` output.
+- Processes present in `/proc` but not in the output of `ps`.
+- Processes creating **raw sockets**.
+- Simple checks for persistence in files like `rc.local` or user shell profiles.
 - **Extensible architecture** where results from heuristics can be passed to a machine learning model for further classification.
 
 ## Python Heuristic Prototype Usage

@@ -1,8 +1,9 @@
 import os
 import subprocess
 import psutil
+import socket
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import List
 
 @dataclass
 class DetectionResult:
@@ -67,12 +68,48 @@ def check_hidden_processes(report: SentinelReport):
     for pid in sorted(hidden):
         report.add("Hidden process", f"PID {pid}")
 
+def check_raw_sockets(report: SentinelReport):
+    seen = set()
+    try:
+        for conn in psutil.net_connections(kind='inet'):
+            if conn.type == socket.SOCK_RAW:
+                pid = conn.pid
+                if pid and pid not in seen:
+                    seen.add(pid)
+                    try:
+                        name = psutil.Process(pid).name()
+                    except Exception:
+                        name = 'unknown'
+                    report.add("Raw socket", f"PID {pid} ({name})")
+    except Exception as e:
+        report.add("raw socket check error", str(e))
+
+def check_persistence(report: SentinelReport):
+    paths = [
+        "/etc/rc.local",
+        "/etc/crontab",
+        os.path.expanduser("~/.bashrc"),
+    ]
+    suspicious = ("/tmp", "/dev", "wget", "curl")
+    for path in paths:
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, 'r', errors='ignore') as f:
+                data = f.read()
+            if any(s in data for s in suspicious):
+                report.add("Persistence file", f"{path} contains suspicious entry")
+        except Exception as e:
+            report.add("persistence check error", f"{path}: {e}")
+
 def run_heuristics() -> SentinelReport:
     report = SentinelReport()
     check_ld_preload(report)
     check_tmp_exec(report)
     check_hidden_modules(report)
     check_hidden_processes(report)
+    check_raw_sockets(report)
+    check_persistence(report)
     return report
 
 def main():
