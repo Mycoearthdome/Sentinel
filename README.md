@@ -20,6 +20,17 @@ python -m sentinelroot.sentinel
 
 The script prints a simple report with any suspicious findings. Elevated permissions may be required for full inspection.
 
+## Command Line TUI
+
+A simple text-based user interface is available using Python's `curses` module:
+
+```bash
+python -m sentinelroot.tui
+```
+
+Press `q` to exit the interface. This provides the same heuristic report as the
+standard Python script but in a fullscreen terminal view.
+
 ## Qt Interface
 
 The repository also includes a lightweight Qt application that displays the same
