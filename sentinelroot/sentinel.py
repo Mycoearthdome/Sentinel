@@ -4,6 +4,7 @@ import psutil
 import socket
 from dataclasses import dataclass, field
 from typing import List
+from .ml import SignatureClassifier
 
 @dataclass
 class DetectionResult:
@@ -102,6 +103,32 @@ def check_persistence(report: SentinelReport):
         except Exception as e:
             report.add("persistence check error", f"{path}: {e}")
 
+def check_ml_signatures(report: SentinelReport):
+    """Run ML classifier on running executable paths if model is available."""
+    model_path = os.path.join(os.path.dirname(__file__), "signature_model.joblib")
+    if not os.path.isfile(model_path):
+        return
+    clf = SignatureClassifier()
+    try:
+        clf.load(model_path)
+    except Exception as e:
+        report.add("ml load error", str(e))
+        return
+    executables = []
+    for proc in psutil.process_iter(['exe']):
+        exe = proc.info.get('exe')
+        if exe:
+            executables.append(exe)
+    if not executables:
+        return
+    try:
+        scores = clf.predict(executables)
+        for exe, score in zip(executables, scores):
+            if score > 0.8:
+                report.add("ML suspicious", f"{exe} score={score:.2f}")
+    except Exception as e:
+        report.add("ml predict error", str(e))
+
 def run_heuristics() -> SentinelReport:
     report = SentinelReport()
     check_ld_preload(report)
@@ -110,6 +137,7 @@ def run_heuristics() -> SentinelReport:
     check_hidden_processes(report)
     check_raw_sockets(report)
     check_persistence(report)
+    check_ml_signatures(report)
     return report
 
 def main():
