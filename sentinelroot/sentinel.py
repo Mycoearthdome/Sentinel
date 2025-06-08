@@ -19,6 +19,8 @@ from pathlib import Path
 from .ml import SignatureClassifier, StaticFeatureClassifier
 from .binary_features import BinaryFeatureExtractor
 from .db import store_process, find_paths_by_checksum, load_signatures, PROCESS_DB
+from .train import train_models
+import threading
 EVIL_PROCESS_SIGNATURES.extend(load_signatures())
 EVIL_MODULE_SIGNATURES = ["evilmod", "badmodule"]
 import shutil
@@ -26,6 +28,33 @@ import shutil
 SUSPICIOUS_IPS_FILE = os.path.join(os.path.dirname(__file__), "malicious_ips.json")
 
 LOG_TAG = "sentinelroot"
+
+
+def start_background_training() -> None:
+    """Launch ML training in a background thread if no model exists."""
+    model_path = os.path.join(os.path.dirname(__file__), "signature_model.joblib")
+    if os.path.isfile(model_path):
+        return
+
+    def _worker() -> None:
+        try:
+            train_models(model_path=model_path)
+            subprocess.run([
+                "logger",
+                "-t",
+                LOG_TAG,
+                "ML training complete - model ready",
+            ], check=False)
+        except Exception as e:
+            subprocess.run([
+                "logger",
+                "-t",
+                LOG_TAG,
+                f"ML training failed: {e}",
+            ], check=False)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
 
 @dataclass
 class DetectionResult:
@@ -500,6 +529,7 @@ def run_heuristics() -> SentinelReport:
     return report
 
 def main():
+    start_background_training()
     report = run_heuristics()
     print("SentinelRoot Heuristic Report")
     print(report.summary())
