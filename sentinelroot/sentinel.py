@@ -150,6 +150,42 @@ def check_ml_signatures(report: SentinelReport):
     except Exception as e:
         report.add("ml predict error", str(e))
 
+def check_suspicious_cmdline(report: SentinelReport):
+    """Detect processes started with suspicious command line arguments."""
+    keywords = ["curl", "wget", "nc", "bash", "sh", "python", "perl", "ruby", "base64"]
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            cmdline = ' '.join(proc.info.get('cmdline') or [])
+            if any(k in cmdline for k in keywords):
+                report.add("Suspicious cmdline", f"PID {proc.pid}: {cmdline}")
+        except Exception:
+            continue
+
+def check_process_resources(report: SentinelReport, cpu_thresh: float = 80.0, mem_thresh: float = 80.0):
+    """Flag processes using excessive CPU or memory."""
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            cpu = proc.cpu_percent(interval=0.1)
+            mem = proc.memory_percent()
+            if cpu > cpu_thresh:
+                report.add("High CPU", f"PID {proc.pid} ({proc.info.get('name')}) {cpu:.1f}%")
+            if mem > mem_thresh:
+                report.add("High memory", f"PID {proc.pid} ({proc.info.get('name')}) {mem:.1f}%")
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+def check_known_process_signatures(report: SentinelReport):
+    """Report processes whose names match known malicious signatures."""
+    for proc in psutil.process_iter(['pid', 'name', 'exe']):
+        try:
+            name = proc.info.get('name') or ''
+            exe = proc.info.get('exe') or ''
+            target = name + ' ' + exe
+            if any(sig in target for sig in EVIL_PROCESS_SIGNATURES):
+                report.add("Known bad process", f"PID {proc.pid}: {target.strip()}")
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
 def kill_evil_processes(report: SentinelReport):
     """Kill processes with names or paths matching known malicious signatures."""
     for proc in psutil.process_iter(['pid', 'name', 'exe']):
@@ -189,6 +225,9 @@ def run_heuristics() -> SentinelReport:
     check_suspicious_ports(report)
     check_persistence(report)
     check_ml_signatures(report)
+    check_suspicious_cmdline(report)
+    check_process_resources(report)
+    check_known_process_signatures(report)
     kill_evil_processes(report)
     remove_evil_modules(report)
     return report
