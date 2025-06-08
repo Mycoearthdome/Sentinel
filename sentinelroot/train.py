@@ -2,15 +2,15 @@ from .ml import SignatureClassifier
 import argparse
 
 DEFAULT_URLS = [
-    # Replace these URLs with actual signature datasets
-    "https://example.com/signatures.csv"
+    # MalwareBazaar full signature dump (zip containing CSV)
+    "https://bazaar.abuse.ch/export/csv/full/"
 ]
 
 
 def main():
     parser = argparse.ArgumentParser(description="Train signature classifier")
     parser.add_argument('--urls', nargs='*', default=DEFAULT_URLS,
-                        help='CSV URLs with columns signature,label')
+                        help='CSV or ZIP URLs providing a signature dataset')
     parser.add_argument('--model-path', default='signature_model.joblib')
     args = parser.parse_args()
 

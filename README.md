@@ -53,12 +53,17 @@ binary signatures. A helper script downloads CSV datasets from the internet and
 trains a model:
 
 ```bash
-python -m sentinelroot.train --urls https://example.com/signatures.csv
+python -m sentinelroot.train
 ```
 
-The CSV files must contain `signature` and `label` columns. The trained model is
-stored as `signature_model.joblib` and used automatically by the main heuristic
-script when present.
+By default the script downloads the latest signature dump from
+`https://bazaar.abuse.ch/export/csv/full/`, which is provided as a ZIP
+archive containing a CSV file.
+
+The CSV should include a `signature` column and optionally a `label` column.
+When the label is missing, all samples are considered malicious and the label is
+set to `1`. The trained model is stored as `signature_model.joblib` and used
+automatically by the main heuristic script when present.
 
 ## Project Goals
 
