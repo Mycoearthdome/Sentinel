@@ -5,6 +5,7 @@ from typing import List
 
 PROCESS_DB = os.path.join(os.path.dirname(__file__), 'processes.db')
 SIGNATURE_DB = os.path.join(os.path.dirname(__file__), 'signatures.db')
+BOOT_DB = os.path.join(os.path.dirname(__file__), 'boot_files.db')
 
 
 def init_process_db(db_path: str = PROCESS_DB) -> sqlite3.Connection:

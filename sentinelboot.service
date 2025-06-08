@@ -1,0 +1,11 @@
+[Unit]
+Description=Sentinel Boot Protection
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sentinelboot
+
+[Install]
+WantedBy=multi-user.target
+
