@@ -18,7 +18,14 @@ from typing import List
 from pathlib import Path
 from .ml import SignatureClassifier, StaticFeatureClassifier
 from .binary_features import BinaryFeatureExtractor
-from .db import store_process, find_paths_by_checksum, load_signatures, PROCESS_DB
+from .db import (
+    store_process,
+    find_paths_by_checksum,
+    load_signatures,
+    PROCESS_DB,
+    store_tool_checksum,
+    get_tool_checksum,
+)
 from .train import train_models
 import threading
 EVIL_PROCESS_SIGNATURES.extend(load_signatures())
@@ -355,6 +362,28 @@ def block_remote_ips(pid: int, report: SentinelReport):
     except Exception as e:
         report.add("block ip error", f"PID {pid}: {e}")
 
+
+def apply_ip_blocklist(report: SentinelReport) -> None:
+    """Proactively block known malicious IPs using iptables."""
+    if os.geteuid() != 0:
+        return
+    bad_ips = load_suspicious_ips()
+    for ip in bad_ips:
+        try:
+            rc = subprocess.run(
+                ["iptables", "-C", "INPUT", "-s", ip, "-j", "DROP"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if rc.returncode != 0:
+                subprocess.run(
+                    ["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"],
+                    check=False,
+                )
+                report.add("IP blocked", ip)
+        except Exception:
+            continue
+
 def kill_evil_processes(report: SentinelReport):
     """Kill processes with names or paths matching known malicious signatures."""
     for proc in psutil.process_iter(['pid', 'name', 'exe']):
@@ -379,6 +408,36 @@ def sha256_file(path: str) -> str:
         return h.hexdigest()
     except Exception:
         return ''
+
+
+def reinstall_tool(name: str, report: SentinelReport) -> None:
+    """Attempt to reinstall a tool using the system package manager."""
+    apt = shutil.which("apt-get") or shutil.which("apt")
+    if not apt:
+        report.add("reinstall unavailable", name)
+        return
+    try:
+        subprocess.run([apt, "install", "--reinstall", "-y", name], check=False)
+    except Exception as e:
+        report.add("reinstall error", f"{name}: {e}")
+
+
+def verify_tool_integrity(name: str, path: str, report: SentinelReport) -> bool:
+    """Check tool checksum against DB and reinstall if mismatched."""
+    actual = sha256_file(path)
+    if not actual:
+        return False
+    stored = get_tool_checksum(name)
+    if not stored:
+        store_tool_checksum(name, path, actual)
+        return True
+    if stored != actual:
+        report.add("Tool checksum mismatch", name)
+        reinstall_tool(name, report)
+        new = sha256_file(path)
+        store_tool_checksum(name, path, new)
+        return new == actual
+    return True
 
 
 def consolidate_process_checksums(report: SentinelReport, threshold: float = 20.0):
@@ -474,6 +533,9 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
         if not shutil.which(exe) and not os.path.exists(exe):
             report.add(f"{name} not found", "")
             continue
+        path = exe if os.path.isabs(exe) else shutil.which(exe) or exe
+        if not verify_tool_integrity(name, path, report):
+            continue
         try:
             out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
             lines = out.strip().splitlines()
@@ -515,6 +577,7 @@ def run_heuristics() -> SentinelReport:
     check_persistence(report)
     check_systemd_services(report)
     check_network_patterns(report)
+    apply_ip_blocklist(report)
     check_kernel_kprobes(report)
     check_ml_signatures(report)
     check_static_binaries(report)
