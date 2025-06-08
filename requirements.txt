@@ -1,1 +1,4 @@
 psutil>=5.9
+requests
+pandas
+scikit-learn

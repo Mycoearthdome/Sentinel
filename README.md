@@ -46,6 +46,20 @@ sudo apt-get install qtbase5-dev qtbase5-dev-tools
 Running `install.sh` will build the binary in `build/` and, if executed as root,
 copy `sentinelrootqt` to `/usr/local/bin`.
 
+## Training the ML Heuristic
+
+The Python module now includes a small machine learning component for classifying
+binary signatures. A helper script downloads CSV datasets from the internet and
+trains a model:
+
+```bash
+python -m sentinelroot.train --urls https://example.com/signatures.csv
+```
+
+The CSV files must contain `signature` and `label` columns. The trained model is
+stored as `signature_model.joblib` and used automatically by the main heuristic
+script when present.
+
 ## Project Goals
 
 This repository contains only a minimal proof-of-concept. The broader project goal is a full detection engine capable of analysing static binary features, kernel integrity hooks, system behaviour, persistence techniques and network patterns. Machine learning models such as gradient boosting (e.g. XGBoost) are intended to complement rule-based heuristics for higher accuracy.
