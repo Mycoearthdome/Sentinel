@@ -1,4 +1,5 @@
 from .ml import SignatureClassifier
+from .db import init_signature_db, SIGNATURE_DB
 import argparse
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import cross_val_score
@@ -20,6 +21,15 @@ def main():
 
     clf = SignatureClassifier()
     df = clf.fetch_dataset(args.urls)
+
+    # Store signatures in SQLite for faster lookup by the main heuristic
+    with init_signature_db(SIGNATURE_DB) as conn:
+        cur = conn.cursor()
+        for sig in df['signature']:
+            cur.execute(
+                "INSERT OR IGNORE INTO signatures(signature) VALUES (?)", (sig,)
+            )
+        conn.commit()
 
     # Perform cross validation using a pipeline so the vectorizer is
     # fitted inside each fold. This provides a more realistic estimate
