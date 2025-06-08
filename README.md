@@ -12,6 +12,9 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 - Processes creating **raw sockets**.
 - Processes listening on suspicious ports such as `31337`.
 - Simple checks for persistence in files like `rc.local` or user shell profiles.
+- Command line inspection to flag processes launched with tools like `curl` or `nc`.
+- Resource monitoring for processes consuming excessive CPU or memory.
+- Reporting of processes whose names match known malicious signatures.
 - **Extensible architecture** where results from heuristics can be passed to a machine learning model for further classification.
 - Can automatically remove modules or kill processes when their names match
   known malicious signatures.
