@@ -104,8 +104,9 @@ F1 score is printed to give an indication of model accuracy.
 
 ## Updating Signatures
 
-Signatures are also stored in `signatures.db` for fast lookups. Update this
-database weekly with a cron job:
+Signatures are also stored in `signatures.db` for fast lookups. The
+`install.sh` script automatically configures a weekly cron job to keep this
+database updated, which looks like the following:
 
 ```cron
 0 3 * * 0 python -m sentinelroot.update_signatures >/var/log/sentinel_update.log 2>&1

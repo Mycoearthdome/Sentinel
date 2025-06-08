@@ -1,5 +1,7 @@
 import argparse
 import sqlite3
+import subprocess
+import sys
 from .ml import SignatureClassifier
 from .db import SIGNATURE_DB, init_signature_db
 
@@ -17,7 +19,16 @@ def main():
     args = parser.parse_args()
 
     clf = SignatureClassifier()
-    df = clf.fetch_dataset(args.urls)
+    try:
+        df = clf.fetch_dataset(args.urls)
+    except Exception as e:
+        msg = f"Failed to fetch signature data: {e}"
+        print(msg, file=sys.stderr)
+        try:
+            subprocess.run(["logger", "-t", "sentinelroot", msg], check=False)
+        except Exception:
+            pass
+        return 1
 
     with init_signature_db(args.db_path) as conn:
         cur = conn.cursor()
@@ -30,4 +41,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
