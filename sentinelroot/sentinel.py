@@ -6,6 +6,7 @@ import signal
 import sqlite3
 import hashlib
 import time
+import json
 
 # Simple lists of known malicious signatures. These can be extended or
 # loaded from an external source in the future.
@@ -15,11 +16,14 @@ EVIL_PROCESS_SIGNATURES = ["evilproc", "badproc"]
 from dataclasses import dataclass, field
 from typing import List
 from pathlib import Path
-from .ml import SignatureClassifier
+from .ml import SignatureClassifier, StaticFeatureClassifier
+from .binary_features import BinaryFeatureExtractor
 from .db import store_process, find_paths_by_checksum, load_signatures, PROCESS_DB
 EVIL_PROCESS_SIGNATURES.extend(load_signatures())
 EVIL_MODULE_SIGNATURES = ["evilmod", "badmodule"]
 import shutil
+
+SUSPICIOUS_IPS_FILE = os.path.join(os.path.dirname(__file__), "malicious_ips.json")
 
 LOG_TAG = "sentinelroot"
 
@@ -140,6 +144,58 @@ def check_persistence(report: SentinelReport):
         except Exception as e:
             report.add("persistence check error", f"{path}: {e}")
 
+def check_systemd_services(report: SentinelReport):
+    """Look for suspicious commands in systemd service files."""
+    service_dirs = ['/etc/systemd/system', '/usr/lib/systemd/system']
+    keywords = ['wget', 'curl', '/tmp', '/dev']
+    for d in service_dirs:
+        if not os.path.isdir(d):
+            continue
+        for root_dir, _, files in os.walk(d):
+            for name in files:
+                if not name.endswith('.service'):
+                    continue
+                path = os.path.join(root_dir, name)
+                try:
+                    with open(path, 'r', errors='ignore') as f:
+                        text = f.read()
+                    if any(k in text for k in keywords):
+                        report.add('Suspicious service', path)
+                except Exception:
+                    continue
+
+def load_suspicious_ips() -> set:
+    try:
+        with open(SUSPICIOUS_IPS_FILE) as f:
+            return set(json.load(f))
+    except Exception:
+        return set()
+
+def check_network_patterns(report: SentinelReport):
+    bad_ips = load_suspicious_ips()
+    if not bad_ips:
+        return
+    for conn in psutil.net_connections(kind='inet'):
+        if conn.raddr and conn.raddr.ip in bad_ips:
+            pid = conn.pid
+            try:
+                name = psutil.Process(pid).name() if pid else 'unknown'
+            except Exception:
+                name = 'unknown'
+            report.add('Bad IP connection', f'PID {pid} ({name}) -> {conn.raddr.ip}')
+
+def check_kernel_kprobes(report: SentinelReport):
+    path = '/sys/kernel/debug/kprobes/list'
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path) as f:
+            lines = [l.strip() for l in f if l.strip()]
+        for line in lines:
+            report.add('kprobe', line)
+    except Exception as e:
+        report.add('kprobe error', str(e))
+
 def check_ml_signatures(report: SentinelReport):
     """Run ML classifier on running executable paths if model is available."""
     model_path = os.path.join(os.path.dirname(__file__), "signature_model.joblib")
@@ -165,6 +221,31 @@ def check_ml_signatures(report: SentinelReport):
                 report.add("ML suspicious", f"{exe} score={score:.2f}")
     except Exception as e:
         report.add("ml predict error", str(e))
+
+def check_static_binaries(report: SentinelReport):
+    model_path = os.path.join(os.path.dirname(__file__), 'static_model.joblib')
+    if not os.path.isfile(model_path):
+        return
+    clf = StaticFeatureClassifier()
+    try:
+        clf.load(model_path)
+    except Exception as e:
+        report.add('static ml load error', str(e))
+        return
+    extractor = BinaryFeatureExtractor()
+    for proc in psutil.process_iter(['exe']):
+        exe = proc.info.get('exe')
+        if not exe or not os.path.isfile(exe):
+            continue
+        feats = extractor.extract(exe)
+        if not feats:
+            continue
+        try:
+            score = clf.predict([list(feats.values())])[0]
+            if score > 0.8:
+                report.add('Static suspicious', f'{exe} score={score:.2f}')
+        except Exception as e:
+            report.add('static predict error', str(e))
 
 def check_suspicious_cmdline(report: SentinelReport):
     """Detect processes started with suspicious command line arguments."""
@@ -403,7 +484,11 @@ def run_heuristics() -> SentinelReport:
     check_raw_sockets(report)
     check_suspicious_ports(report)
     check_persistence(report)
+    check_systemd_services(report)
+    check_network_patterns(report)
+    check_kernel_kprobes(report)
     check_ml_signatures(report)
+    check_static_binaries(report)
     check_suspicious_cmdline(report)
     check_process_resources(report)
     consolidate_process_checksums(report)

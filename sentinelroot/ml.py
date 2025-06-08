@@ -1,7 +1,12 @@
 import requests
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+try:
+    from xgboost import XGBClassifier
+    HAS_XGB = True
+except Exception:  # pragma: no cover - optional dependency
+    HAS_XGB = False
 import joblib
 from io import StringIO, BytesIO
 import zipfile
@@ -60,3 +65,25 @@ class SignatureClassifier:
         data = joblib.load(path)
         self.vectorizer = data['vectorizer']
         self.clf = data['clf']
+
+
+class StaticFeatureClassifier:
+    """Classifier for static binary features using gradient boosting."""
+
+    def __init__(self):
+        if HAS_XGB:
+            self.clf = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+        else:
+            self.clf = GradientBoostingClassifier()
+
+    def train(self, X, y):
+        self.clf.fit(X, y)
+
+    def predict(self, X):
+        return self.clf.predict_proba(X)[:, 1]
+
+    def save(self, path):
+        joblib.dump(self.clf, path)
+
+    def load(self, path):
+        self.clf = joblib.load(path)
