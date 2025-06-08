@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+project(SentinelRootQt)
+find_package(Qt5 COMPONENTS Widgets REQUIRED)
+add_executable(sentinelrootqt main.cpp)
+target_link_libraries(sentinelrootqt Qt5::Widgets)
