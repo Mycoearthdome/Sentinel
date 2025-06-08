@@ -3,14 +3,21 @@ import subprocess
 import psutil
 import socket
 import signal
+import sqlite3
+import hashlib
+import time
 
 # Simple lists of known malicious signatures. These can be extended or
 # loaded from an external source in the future.
+# Start with built-in signatures but extend from the SQLite database when
+# available. This allows quick searches across distributions.
 EVIL_PROCESS_SIGNATURES = ["evilproc", "badproc"]
+EVIL_PROCESS_SIGNATURES.extend(load_signatures())
 EVIL_MODULE_SIGNATURES = ["evilmod", "badmodule"]
 from dataclasses import dataclass, field
 from typing import List
 from .ml import SignatureClassifier
+from .db import store_process, find_paths_by_checksum, load_signatures, PROCESS_DB
 
 @dataclass
 class DetectionResult:
@@ -199,6 +206,51 @@ def kill_evil_processes(report: SentinelReport):
         except Exception as e:
             report.add("Kill error", f"PID {proc.pid}: {e}")
 
+
+def sha256_file(path: str) -> str:
+    try:
+        h = hashlib.sha256()
+        with open(path, 'rb') as f:
+            for chunk in iter(lambda: f.read(65536), b''):
+                h.update(chunk)
+        return h.hexdigest()
+    except Exception:
+        return ''
+
+
+def consolidate_process_checksums(report: SentinelReport, threshold: float = 20.0):
+    """Store running process executable checksums when CPU usage is low."""
+    if psutil.cpu_percent(interval=1.0) > threshold:
+        return
+    for proc in psutil.process_iter(['exe']):
+        exe = proc.info.get('exe')
+        if exe and os.path.isfile(exe):
+            checksum = sha256_file(exe)
+            if checksum:
+                store_process(exe, checksum)
+
+
+def kill_priv_escalation_ports(report: SentinelReport):
+    """Kill processes that gained root and opened a listening port."""
+    for proc in psutil.process_iter(['pid', 'uids', 'exe']):
+        try:
+            uids = proc.uids()
+            if uids.euid == 0 and uids.real != 0:
+                conns = proc.connections(kind='inet')
+                if any(c.status == psutil.CONN_LISTEN for c in conns):
+                    exe = proc.info.get('exe') or ''
+                    checksum = sha256_file(exe) if exe else ''
+                    if checksum:
+                        store_process(exe, checksum)
+                        paths = find_paths_by_checksum(checksum)
+                        for p in paths:
+                            if p != exe:
+                                report.add('Possible copy', p)
+                    os.kill(proc.pid, signal.SIGKILL)
+                    report.add('Killed priv esc', f'PID {proc.pid}: {exe}')
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
 def remove_evil_modules(report: SentinelReport):
     """Remove loaded kernel modules matching known malicious signatures."""
     try:
@@ -227,8 +279,10 @@ def run_heuristics() -> SentinelReport:
     check_ml_signatures(report)
     check_suspicious_cmdline(report)
     check_process_resources(report)
+    consolidate_process_checksums(report)
     check_known_process_signatures(report)
     kill_evil_processes(report)
+    kill_priv_escalation_ports(report)
     remove_evil_modules(report)
     return report
 

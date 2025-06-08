@@ -75,6 +75,15 @@ automatically by the main heuristic script when present.
 During training a **5-fold cross-validation** run is performed and the average
 F1 score is printed to give an indication of model accuracy.
 
+## Updating Signatures
+
+Signatures are also stored in `signatures.db` for fast lookups. Update this
+database weekly with a cron job:
+
+```cron
+0 3 * * 0 python -m sentinelroot.update_signatures >/var/log/sentinel_update.log 2>&1
+```
+
 ## Project Goals
 
 This repository contains only a minimal proof-of-concept. The broader project goal is a full detection engine capable of analysing static binary features, kernel integrity hooks, system behaviour, persistence techniques and network patterns. Machine learning models such as gradient boosting (e.g. XGBoost) are intended to complement rule-based heuristics for higher accuracy.
