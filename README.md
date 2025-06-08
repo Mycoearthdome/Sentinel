@@ -83,6 +83,10 @@ partition from the stored image using ``dd``.
 ## External Scanner Integration
 
 On its first execution the Python module attempts to run [rkhunter](http://rkhunter.sourceforge.net/), [chkrootkit](http://www.chkrootkit.org/), [lynis](https://cisofy.com/lynis/), [maldet](https://www.rfxn.com/projects/linux-malware-detect/), [ClamAV](https://www.clamav.net/) and the [OSSEC](https://www.ossec.net/) rootcheck when these tools are installed. Output from these scanners is sent to syslog via the `logger` command and can be reviewed with `dmesg` or by inspecting `/var/log/syslog`.
+Before each scanner runs its binary hash is compared against a checksum stored in
+`tools.db`.  When a mismatch is detected the tool is automatically reinstalled
+from the package repository and the new checksum recorded.  This guards against
+tampering of the external scanners themselves.
 
 ## Training the ML Heuristic
 
@@ -118,7 +122,7 @@ database updated, which looks like the following:
 
 ## Project Goals
 
-This repository contains only a minimal proof-of-concept. The broader project goal is a full detection engine capable of analysing static binary features, kernel integrity hooks, system behaviour, persistence techniques and network patterns. The latest prototype now inspects systemd services, monitors network connections against a list of malicious IPs and can analyse static binary features using a gradient boosting model powered by **XGBoost** when available. Machine learning models complement rule-based heuristics for higher accuracy.
+This repository contains only a minimal proof-of-concept. The broader project goal is a full detection engine capable of analysing static binary features, kernel integrity hooks, system behaviour, persistence techniques and network patterns. The latest prototype now inspects systemd services, monitors network connections against a list of malicious IPs and can analyse static binary features using a gradient boosting model powered by **XGBoost** when available. Machine learning models complement rule-based heuristics for higher accuracy. The current release also applies this malicious IP list as an **IPS** rule set by inserting `iptables` drop rules for each address found in `malicious_ips.json`.
 
 ## Upcoming Features
 
