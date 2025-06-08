@@ -2,6 +2,12 @@ import os
 import subprocess
 import psutil
 import socket
+import signal
+
+# Simple lists of known malicious signatures. These can be extended or
+# loaded from an external source in the future.
+EVIL_PROCESS_SIGNATURES = ["evilproc", "badproc"]
+EVIL_MODULE_SIGNATURES = ["evilmod", "badmodule"]
 from dataclasses import dataclass, field
 from typing import List
 from .ml import SignatureClassifier
@@ -144,6 +150,35 @@ def check_ml_signatures(report: SentinelReport):
     except Exception as e:
         report.add("ml predict error", str(e))
 
+def kill_evil_processes(report: SentinelReport):
+    """Kill processes with names or paths matching known malicious signatures."""
+    for proc in psutil.process_iter(['pid', 'name', 'exe']):
+        try:
+            name = proc.info.get('name') or ''
+            exe = proc.info.get('exe') or ''
+            target = name + ' ' + exe
+            if any(sig in target for sig in EVIL_PROCESS_SIGNATURES):
+                os.kill(proc.pid, signal.SIGKILL)
+                report.add("Killed process", f"PID {proc.pid}: {target.strip()}")
+        except Exception as e:
+            report.add("Kill error", f"PID {proc.pid}: {e}")
+
+def remove_evil_modules(report: SentinelReport):
+    """Remove loaded kernel modules matching known malicious signatures."""
+    try:
+        with open('/proc/modules') as f:
+            modules = [line.split()[0] for line in f]
+    except Exception as e:
+        report.add("module list error", str(e))
+        return
+    for mod in modules:
+        if any(sig in mod for sig in EVIL_MODULE_SIGNATURES):
+            try:
+                subprocess.run(['rmmod', mod], check=True)
+                report.add("Removed module", mod)
+            except Exception as e:
+                report.add("rmmod error", f"{mod}: {e}")
+
 def run_heuristics() -> SentinelReport:
     report = SentinelReport()
     check_ld_preload(report)
@@ -154,6 +189,8 @@ def run_heuristics() -> SentinelReport:
     check_suspicious_ports(report)
     check_persistence(report)
     check_ml_signatures(report)
+    kill_evil_processes(report)
+    remove_evil_modules(report)
     return report
 
 def main():
