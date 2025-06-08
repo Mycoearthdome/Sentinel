@@ -19,7 +19,7 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 - Can automatically remove modules or kill processes when their names match
   known malicious signatures.
 - On the first run the tool attempts to launch **rkhunter**, **chkrootkit**,
-  **lynis**, **maldet** and the **OSSEC** rootcheck when available. The output
+  **lynis**, **maldet**, **ClamAV** and the **OSSEC** rootcheck when available. The output
   from these scanners is forwarded to syslog for later review.
 - Combining two or more of these tools (e.g. **rkhunter** with **maldet**, or
   **lynis** with **OSSEC**) provides a stronger layered defense on Linux
@@ -30,7 +30,7 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 Run the provided `install.sh` script to build the C service and install all
 dependencies. The script detects `apt`, `yum`, `zypper` or `aptitude` and uses
 the available package manager to install `rkhunter`, `chkrootkit`, `lynis`,
-`maldet` and `ossec-hids` along with the Python modules from
+`maldet`, `clamav` and `ossec-hids` along with the Python modules from
 `requirements.txt`.
 
 All detections from the Python heuristics are automatically sent to syslog via
@@ -78,7 +78,7 @@ The installation also deploys `sentinelboot`, which verifies the contents of
 
 ## External Scanner Integration
 
-On its first execution the Python module attempts to run [rkhunter](http://rkhunter.sourceforge.net/), [chkrootkit](http://www.chkrootkit.org/), [lynis](https://cisofy.com/lynis/), [maldet](https://www.rfxn.com/projects/linux-malware-detect/) and the [OSSEC](https://www.ossec.net/) rootcheck when these tools are installed. Output from these scanners is sent to syslog via the `logger` command and can be reviewed with `dmesg` or by inspecting `/var/log/syslog`.
+On its first execution the Python module attempts to run [rkhunter](http://rkhunter.sourceforge.net/), [chkrootkit](http://www.chkrootkit.org/), [lynis](https://cisofy.com/lynis/), [maldet](https://www.rfxn.com/projects/linux-malware-detect/), [ClamAV](https://www.clamav.net/) and the [OSSEC](https://www.ossec.net/) rootcheck when these tools are installed. Output from these scanners is sent to syslog via the `logger` command and can be reviewed with `dmesg` or by inspecting `/var/log/syslog`.
 
 ## Training the ML Heuristic
 

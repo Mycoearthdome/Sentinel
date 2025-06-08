@@ -177,6 +177,15 @@ def check_suspicious_cmdline(report: SentinelReport):
         except Exception:
             continue
 
+def high_system_load(cpu_thresh: float = 90.0, mem_thresh: float = 90.0) -> bool:
+    """Return True if system load is too high for heavy operations."""
+    try:
+        cpu = psutil.cpu_percent(interval=0.5)
+        mem = psutil.virtual_memory().percent
+        return cpu > cpu_thresh or mem > mem_thresh
+    except Exception:
+        return False
+
 def check_process_resources(report: SentinelReport, cpu_thresh: float = 80.0, mem_thresh: float = 80.0):
     """Flag processes using excessive CPU or memory."""
     for proc in psutil.process_iter(['pid', 'name']):
@@ -328,6 +337,9 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
         return
     os.makedirs(os.path.dirname(flag), exist_ok=True)
     Path(flag).touch()
+    if high_system_load():
+        report.add("High system load", "Skipping external scanners")
+        return
 
     scanners = {
         "rkhunter": ["rkhunter", "--check", "--skip-keypress", "--rwo"],
@@ -335,6 +347,15 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
         "lynis": ["lynis", "audit", "system", "-Q"],
         "maldet": ["maldet", "-b", "-r", "/"],
     }
+    clam = shutil.which("clamdscan") or shutil.which("clamscan")
+    if clam:
+        scanners["clamav"] = [clam, "-r", "/", "--infected", "--no-summary"]
+        freshclam = shutil.which("freshclam")
+        if freshclam:
+            try:
+                subprocess.run([freshclam], check=False)
+            except Exception:
+                pass
     ossec_rc = shutil.which("ossec-rootcheck") or "/var/ossec/bin/ossec-rootcheck"
     if os.path.exists(ossec_rc):
         scanners["ossec-rootcheck"] = [ossec_rc]
@@ -349,6 +370,18 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
             _log_lines(f"sentinelroot-{name}", lines)
             if lines:
                 report.add(f"{name} output", lines[0])
+            if name == "maldet":
+                scan_id = None
+                for line in lines:
+                    if "SCANID" in line or "SCAN ID" in line:
+                        scan_id = line.split()[-1]
+                        break
+                if scan_id:
+                    try:
+                        rep = subprocess.check_output(["maldet", "--report", scan_id], text=True, stderr=subprocess.STDOUT)
+                        _log_lines("sentinelroot-maldet", rep.strip().splitlines())
+                    except Exception as e:
+                        report.add("maldet report error", str(e))
         except Exception as e:
             report.add(f"{name} error", str(e))
 
@@ -360,6 +393,9 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
 
 def run_heuristics() -> SentinelReport:
     report = SentinelReport()
+    if high_system_load():
+        report.add("High system load", "Skipping heuristic run")
+        return report
     check_ld_preload(report)
     check_tmp_exec(report)
     check_hidden_modules(report)
