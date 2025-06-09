@@ -29,7 +29,7 @@ SentinelRoot is an experimental hybrid heuristic and machine-learning based dete
 
 ## Installation
 
-Run the provided `install.sh` script to build the C service and install all
+Run the provided `install.sh` script to install the Python service and all
 dependencies. The script detects `apt`, `yum`, `zypper` or `aptitude` and uses
 the available package manager to install `rkhunter`, `chkrootkit`, `lynis`,
 `maldet`, `clamav` and `ossec-hids` along with the Python modules from
@@ -84,19 +84,15 @@ errors are easy to spot while scrolling.
 
 Use the arrow keys or PageUp/PageDown to scroll.  Press `q` to exit.
 
-## C Service
+## Systemd Service
 
-A C implementation replicates the heuristic checks and logs results to syslog. Build and install it using:`install.sh`:
-
-```bash
-./install.sh
-```
-
-When run as root the script copies `sentinelroot` to `/usr/local/bin` and enables a `sentinelroot` systemd service.
-The installation also deploys `sentinelboot`, which backs up the entire
-`/boot` partition to a SQLite database on first run.  On every startup it
-verifies file checksums and, if any have changed, restores the whole
-partition from the stored image using ``dd``.
+The provided `install.sh` script installs the Python heuristics to
+`/usr/local/share/sentinelroot` and configures a `sentinelroot` systemd
+service. The service runs the `sentinel.py` module with `python3` and logs
+results to syslog. The installer also deploys `sentinelboot`, which backs up the
+entire `/boot` partition to a SQLite database on first run. On every boot the
+script verifies file checksums and restores the partition using ``dd`` when any
+changes are detected.
 
 ## External Scanner Integration
 

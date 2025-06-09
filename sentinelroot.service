@@ -3,7 +3,7 @@ Description=SentinelRoot Heuristic Monitor
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/sentinelroot
+ExecStart=/usr/bin/python3 /usr/local/share/sentinelroot/sentinel.py
 Restart=on-failure
 
 [Install]
