@@ -48,6 +48,10 @@ SUSPICIOUS_IPS_FILE = os.path.join(os.path.dirname(__file__), "malicious_ips.jso
 
 LOG_TAG = "sentinelroot"
 
+# Track whether clamav scan has completed and when low CPU state began
+CLAM_SCAN_DONE = False
+_CLAM_IDLE_START = None
+
 
 def start_background_training() -> None:
     """Launch ML training in a background thread if no model exists."""
@@ -378,6 +382,29 @@ def high_system_load(cpu_thresh: float = 90.0, mem_thresh: float = 90.0) -> bool
     except Exception:
         return False
 
+
+def wait_for_low_cpu(
+    hours: float = 3.0,
+    threshold: float = 20.0,
+    check_interval: int = 60,
+) -> None:
+    """Block until CPU load stays below ``threshold`` for ``hours`` hours."""
+    duration = hours * 3600
+    start = None
+    while True:
+        try:
+            usage = psutil.cpu_percent(interval=1.0)
+        except Exception:
+            break
+        if usage < threshold:
+            if start is None:
+                start = time.time()
+            elif time.time() - start >= duration:
+                break
+        else:
+            start = None
+        time.sleep(max(check_interval, 1))
+
 def check_process_resources(report: SentinelReport, cpu_thresh: float = 80.0, mem_thresh: float = 80.0):
     """Flag processes using excessive CPU or memory."""
     for proc in psutil.process_iter(['pid', 'name']):
@@ -398,6 +425,51 @@ def check_process_resources(report: SentinelReport, cpu_thresh: float = 80.0, me
                 )
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
+
+
+def maybe_run_clamav(
+    report: SentinelReport,
+    hours: float = 3.0,
+    threshold: float = 20.0,
+) -> None:
+    """Run clamav scan after sustained low CPU usage."""
+    global CLAM_SCAN_DONE, _CLAM_IDLE_START
+    if CLAM_SCAN_DONE:
+        return
+    try:
+        usage = psutil.cpu_percent(interval=1.0)
+    except Exception:
+        return
+    if usage < threshold:
+        if _CLAM_IDLE_START is None:
+            _CLAM_IDLE_START = time.time()
+        elif time.time() - _CLAM_IDLE_START >= hours * 3600:
+            clam = shutil.which("clamdscan") or shutil.which("clamscan")
+            if not clam:
+                report.add("clamav not found", "", level="notice")
+                CLAM_SCAN_DONE = True
+                return
+            freshclam = shutil.which("freshclam")
+            if freshclam:
+                try:
+                    subprocess.run([freshclam], check=False)
+                except Exception:
+                    pass
+            try:
+                out = subprocess.check_output(
+                    [clam, "-r", "/", "--infected", "--no-summary"],
+                    text=True,
+                    stderr=subprocess.STDOUT,
+                )
+                lines = out.strip().splitlines()
+                _log_lines("sentinelroot-clamav", lines)
+                if lines:
+                    report.add("clamav output", lines[0], level="info")
+            except Exception as e:
+                report.add("clamav error", str(e), level="err")
+            CLAM_SCAN_DONE = True
+    else:
+        _CLAM_IDLE_START = None
 
 def check_known_process_signatures(report: SentinelReport):
     """Report processes whose names match known malicious signatures."""
@@ -628,15 +700,6 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
         "lynis": ["lynis", "audit", "system", "-Q"],
         "maldet": ["maldet", "-b", "-r", "/"],
     }
-    clam = shutil.which("clamdscan") or shutil.which("clamscan")
-    if clam:
-        scanners["clamav"] = [clam, "-r", "/", "--infected", "--no-summary"]
-        freshclam = shutil.which("freshclam")
-        if freshclam:
-            try:
-                subprocess.run([freshclam], check=False)
-            except Exception:
-                pass
     ossec_rc = shutil.which("ossec-rootcheck") or "/var/ossec/bin/ossec-rootcheck"
     if os.path.exists(ossec_rc):
         scanners["ossec-rootcheck"] = [ossec_rc]
@@ -701,6 +764,7 @@ def run_heuristics() -> SentinelReport:
     kill_priv_escalation_ports(report)
     remove_evil_modules(report)
     run_external_scanners(report)
+    maybe_run_clamav(report)
     return report
 
 def main():
