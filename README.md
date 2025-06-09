@@ -54,9 +54,11 @@ sudo ./install.sh
 ## Uninstallation
 
 Run the `uninstall.sh` script to remove the services and installed files.  The
-script now detects the location of the installed systemd unit files so it works
+script detects the location of the installed systemd unit files so it works
 regardless of whether your distribution stores them in `/etc`, `/lib` or
-`/usr/lib`.
+`/usr/lib`.  It also kills any running `sentinelroot` Python processes and
+purges the package from all Python `site-packages` directories to ensure the
+modules are fully unloaded.
 
 ```bash
 sudo ./uninstall.sh
