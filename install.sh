@@ -47,7 +47,7 @@ EOF
     echo "Installed sentinelroot and enabled service"
     echo "Cron job added for weekly signature updates"
     # Notify user of successful installation and how to view logs
-    logger -t sentinelroot "SentinelRoot installation successful"
+    logger -t sentinelroot -- "SentinelRoot installation successful"
     echo "Installation complete! SentinelRoot is now protecting your system."
     echo "Check logs with 'journalctl -t sentinelroot' or in /var/log/syslog"
     echo "Upcoming features: improved automation around signature updates and ML model retraining, and scheduled rkhunter scans."
