@@ -50,13 +50,18 @@ sudo ./install.sh
 
 ## Uninstallation
 
-Run the `uninstall.sh` script to remove the services and installed files:
+Run the `uninstall.sh` script to remove the services and installed files.  The
+script now detects the location of the installed systemd unit files so it works
+regardless of whether your distribution stores them in `/etc`, `/lib` or
+`/usr/lib`.
 
 ```bash
 sudo ./uninstall.sh
 ```
 
-All SentinelRoot data and systemd units are deleted while external scanners remain installed.
+All SentinelRoot data and systemd units are deleted while external scanners
+remain installed.  A syslog message tagged `sentinelroot` confirms successful
+removal so you can verify the cleanup with `journalctl -t sentinelroot`.
 
 
 ## Python Heuristic Prototype Usage

@@ -6,15 +6,24 @@ if [ "$(id -u)" != "0" ]; then
     exit 1
 fi
 
+logger -t sentinelroot "Starting SentinelRoot uninstallation"
+
 SERVICES=(sentinelroot.service sentinelboot.service)
 for svc in "${SERVICES[@]}"; do
     systemctl stop "$svc" 2>/dev/null || true
     systemctl disable "$svc" 2>/dev/null || true
-    rm -f "/etc/systemd/system/$svc"
+    svc_path=$(systemctl show -p FragmentPath "$svc" 2>/dev/null | cut -d'=' -f2)
+    if [ -n "$svc_path" ]; then
+        rm -f "$svc_path"
+    else
+        rm -f "/etc/systemd/system/$svc" "/usr/lib/systemd/system/$svc" "/lib/systemd/system/$svc"
+    fi
 done
 systemctl daemon-reload
 
 rm -rf /usr/local/share/sentinelroot
+rm -rf /var/lib/sentinelroot
+rm -f /usr/local/bin/sentinelboot
 rm -f /etc/cron.d/sentinelroot_update
 rm -f /var/log/sentinel_update.log
 
@@ -24,4 +33,3 @@ fi
 
 logger -t sentinelroot "SentinelRoot uninstalled successfully"
 echo "Uninstallation complete. External scanner tools remain installed."
-
