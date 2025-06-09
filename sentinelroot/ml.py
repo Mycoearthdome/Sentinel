@@ -84,9 +84,22 @@ class SignatureClassifier:
         y = df['label']
         self.clf.fit(X, y)
 
+    def _positive_index(self):
+        """Return probability column index for the positive class."""
+        try:
+            classes = list(self.clf.classes_)
+            if 1 in classes:
+                return classes.index(1)
+        except Exception:
+            pass
+        return 1
+
     def predict(self, signatures):
         X = self.vectorizer.transform(signatures)
-        return self.clf.predict_proba(X)[:, 1]
+        probs = self.clf.predict_proba(X)
+        idx = self._positive_index()
+        idx = min(idx, probs.shape[1] - 1)
+        return probs[:, idx]
 
     def save(self, path):
         joblib.dump({'vectorizer': self.vectorizer, 'clf': self.clf}, path)
@@ -109,8 +122,20 @@ class StaticFeatureClassifier:
     def train(self, X, y):
         self.clf.fit(X, y)
 
+    def _positive_index(self):
+        try:
+            classes = list(self.clf.classes_)
+            if 1 in classes:
+                return classes.index(1)
+        except Exception:
+            pass
+        return 1
+
     def predict(self, X):
-        return self.clf.predict_proba(X)[:, 1]
+        probs = self.clf.predict_proba(X)
+        idx = self._positive_index()
+        idx = min(idx, probs.shape[1] - 1)
+        return probs[:, idx]
 
     def save(self, path):
         joblib.dump(self.clf, path)
