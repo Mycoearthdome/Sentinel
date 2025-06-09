@@ -7,6 +7,7 @@ import sqlite3
 import hashlib
 import time
 import json
+import argparse
 
 # Simple lists of known malicious signatures. These can be extended or
 # loaded from an external source in the future.
@@ -703,10 +704,30 @@ def run_heuristics() -> SentinelReport:
     return report
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="SentinelRoot heuristic scanner"
+    )
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="Run continuously and repeat checks",
+    )
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=60,
+        help="Seconds to sleep between scans when looping",
+    )
+    args = parser.parse_args()
+
     start_background_training()
-    report = run_heuristics()
-    print("SentinelRoot Heuristic Report")
-    print(report.summary())
+    while True:
+        report = run_heuristics()
+        print("SentinelRoot Heuristic Report")
+        print(report.summary())
+        if not args.loop:
+            break
+        time.sleep(max(args.interval, 1))
 
 if __name__ == "__main__":
     main()

@@ -74,12 +74,14 @@ removal so you can verify the cleanup with `journalctl -t sentinelroot`.
 ```bash
 pip install -r requirements.txt
 python -m sentinelroot.sentinel
+python -m sentinelroot.sentinel --loop  # continuous monitoring
 ```
 
-The script prints a simple report with any suspicious findings. When run as
-root it also attempts to kill processes or unload kernel modules whose names
-match known malicious signatures. Elevated permissions may therefore be
-required for full functionality.
+Running the module once prints a simple report with any suspicious findings.
+When executed with `--loop` the checks repeat at one-minute intervals until
+interrupted. When run as root the script may kill processes or unload kernel
+modules whose names match known malicious signatures, so elevated permissions
+can be required for full functionality.
 
 ## Command Line TUI
 
@@ -112,8 +114,9 @@ Use the arrow keys or PageUp/PageDown to scroll.  Press `q` to exit.
 
 The provided `install.sh` script installs the Python heuristics to
 `/usr/local/share/sentinelroot` and configures a `sentinelroot` systemd
-service. The service runs the `sentinel.py` module with `python3` and logs
-results to syslog. The unit file explicitly specifies `User=root` so the
+service. The service runs the `sentinel.py` module in looping mode
+(`--loop`) with `python3` so it remains active and systemd restarts it on
+failure. The unit file explicitly specifies `User=root` so the
 heuristics have the permissions required to inspect system resources. The
 installer also sets up a `sentinelboot` service that
 runs the `boot_protect.py` module with `python3`. On first boot the script
