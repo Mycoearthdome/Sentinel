@@ -3,7 +3,10 @@ Description=SentinelRoot Heuristic Monitor
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /usr/local/share/sentinelroot/sentinel.py
+# Run the Python module directly to prevent using any
+# previously compiled binaries that may exist.
+Environment="PYTHONPATH=/usr/local/share"
+ExecStart=/usr/bin/python3 -m sentinelroot.sentinel
 Restart=on-failure
 
 [Install]
