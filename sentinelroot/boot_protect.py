@@ -12,6 +12,7 @@ import base64
 import hashlib
 import subprocess
 from pathlib import Path
+from .db import open_db
 
 BOOT_DB = os.path.join(os.path.dirname(__file__), 'boot_files.db')
 BOOT_DIR = '/boot'
@@ -41,7 +42,7 @@ def get_boot_device() -> str:
 
 
 def init_boot_db(db_path: str = BOOT_DB) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
+    conn = open_db(db_path)
     c = conn.cursor()
     c.execute(
         """CREATE TABLE IF NOT EXISTS boot_files (

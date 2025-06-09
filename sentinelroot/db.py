@@ -3,6 +3,23 @@ import time
 import os
 from typing import List
 
+
+def open_db(db_path: str) -> sqlite3.Connection:
+    """Open a SQLite database with read/write permissions.
+
+    The file is created if it does not exist and its permissions are set so
+    the current user can both read and write it.
+    """
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    try:
+        os.chmod(db_path, 0o600)
+    except Exception:
+        # Ignore permission errors; the database may reside on a filesystem
+        # that does not support chmod or the user may not own the file.
+        pass
+    return conn
+
 PROCESS_DB = os.path.join(os.path.dirname(__file__), 'processes.db')
 SIGNATURE_DB = os.path.join(os.path.dirname(__file__), 'signatures.db')
 BOOT_DB = os.path.join(os.path.dirname(__file__), 'boot_files.db')
@@ -10,7 +27,7 @@ TOOLS_DB = os.path.join(os.path.dirname(__file__), 'tools.db')
 
 
 def init_process_db(db_path: str = PROCESS_DB) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
+    conn = open_db(db_path)
     c = conn.cursor()
     c.execute(
         "CREATE TABLE IF NOT EXISTS process_checksums (path TEXT PRIMARY KEY, checksum TEXT, last_seen INTEGER)"
@@ -20,7 +37,7 @@ def init_process_db(db_path: str = PROCESS_DB) -> sqlite3.Connection:
 
 
 def init_tool_db(db_path: str = TOOLS_DB) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
+    conn = open_db(db_path)
     c = conn.cursor()
     c.execute(
         """CREATE TABLE IF NOT EXISTS tool_checksums (
@@ -34,7 +51,7 @@ def init_tool_db(db_path: str = TOOLS_DB) -> sqlite3.Connection:
 
 
 def init_signature_db(db_path: str = SIGNATURE_DB) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
+    conn = open_db(db_path)
     c = conn.cursor()
     c.execute(
         "CREATE TABLE IF NOT EXISTS signatures (signature TEXT PRIMARY KEY)"
