@@ -738,10 +738,29 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
     except Exception:
         pass
 
+PAUSED = False
+
+
 def run_heuristics() -> SentinelReport:
+    """Run heuristic checks with load-aware pausing."""
+    global PAUSED
     report = SentinelReport()
+    try:
+        usage = psutil.cpu_percent(interval=1.0)
+    except Exception:
+        usage = 0.0
+
+    if PAUSED:
+        if usage < 25.0:
+            PAUSED = False
+            report.add("Resumed after high load", f"{usage:.1f}% CPU", level="notice")
+        else:
+            report.add("Paused due to high load", f"{usage:.1f}% CPU", level="notice")
+            return report
+
     if high_system_load():
-        report.add("High system load", "Skipping heuristic run", level="notice")
+        PAUSED = True
+        report.add("High system load", "Pausing heuristic run", level="notice")
         return report
     check_ld_preload(report)
     check_tmp_exec(report)
