@@ -18,22 +18,48 @@ class SignatureClassifier:
         self.vectorizer = TfidfVectorizer(analyzer='char', ngram_range=(2,4))
         self.clf = RandomForestClassifier(n_estimators=100, random_state=42)
 
+    def _parse_csv(self, text):
+        """Parse CSV text while respecting comment lines.
+
+        The MalwareBazaar dataset used by default starts with ``#`` comments and
+        the header is included in one of those commented lines. ``pandas`` does
+        not handle this situation well if we simply pass ``comment='#'`` because
+        it would treat the first row of actual data as the header. This helper
+        extracts the header manually and then parses the remaining CSV content.
+        """
+        header = None
+        lines = []
+        for line in text.splitlines():
+            if line.startswith('#'):
+                if header is None and 'first_seen_utc' in line:
+                    header = line.lstrip('#').strip()
+                continue
+            lines.append(line)
+        if header:
+            columns = [c.strip(' "') for c in header.split(',')]
+            return pd.read_csv(StringIO('\n'.join(lines)), names=columns,
+                               quotechar='"', skipinitialspace=True)
+        return pd.read_csv(StringIO(text))
+
     def fetch_dataset(self, urls):
         """Download and merge CSV datasets.
 
-        Supports plain CSV files and ZIP archives containing a single CSV
-        file. If the CSV does not include a ``label`` column it is assumed to
+        Supports plain CSV files and ZIP archives containing a single CSV file.
+        If the CSV does not include a ``label`` column it is assumed to
         represent malicious samples and the label is set to ``1``.
         """
         frames = []
         for url in urls:
             if url.startswith("file://"):
                 path = url[7:]
-                df = pd.read_csv(path)
+                with open(path, 'r', encoding='utf-8') as f:
+                    df = self._parse_csv(f.read())
                 if "label" not in df.columns:
                     df["label"] = 1
+                df = df.dropna(subset=["signature"]).reset_index(drop=True)
                 frames.append(df)
                 continue
+
             resp = requests.get(url)
             resp.raise_for_status()
             content_type = resp.headers.get("content-type", "")
@@ -41,12 +67,16 @@ class SignatureClassifier:
                 with zipfile.ZipFile(BytesIO(resp.content)) as zf:
                     name = zf.namelist()[0]
                     with zf.open(name) as f:
-                        df = pd.read_csv(f)
+                        text = f.read().decode('utf-8', errors='replace')
             else:
-                df = pd.read_csv(StringIO(resp.text))
+                text = resp.text
+
+            df = self._parse_csv(text)
             if "label" not in df.columns:
                 df["label"] = 1
+            df = df.dropna(subset=["signature"]).reset_index(drop=True)
             frames.append(df)
+
         return pd.concat(frames, ignore_index=True)
 
     def train(self, df):
