@@ -412,7 +412,7 @@ def check_known_process_signatures(report: SentinelReport):
             continue
 
 def block_remote_ips(pid: int, report: SentinelReport):
-    """Block remote IPs associated with a PID using iptables."""
+    """Block remote IPs associated with a PID using nftables."""
     if os.geteuid() != 0:
         return
     try:
@@ -426,13 +426,16 @@ def block_remote_ips(pid: int, report: SentinelReport):
                     rc = 0
                     try:
                         subprocess.run([
-                            "iptables",
-                            "-I",
+                            "nft",
+                            "insert",
+                            "rule",
+                            "ip",
+                            "filter",
                             "INPUT",
-                            "-s",
+                            "ip",
+                            "saddr",
                             ip,
-                            "-j",
-                            "DROP",
+                            "drop",
                         ], check=True)
                     except Exception:
                         rc = 1
@@ -441,7 +444,7 @@ def block_remote_ips(pid: int, report: SentinelReport):
                 else:
                     _, status = os.waitpid(child, 0)
                     if status != 0:
-                        report.add("iptables error", ip, level="err")
+                        report.add("nftables error", ip, level="err")
                     else:
                         add_suspicious_ip(ip)
     except Exception as e:
@@ -449,20 +452,34 @@ def block_remote_ips(pid: int, report: SentinelReport):
 
 
 def apply_ip_blocklist(report: SentinelReport) -> None:
-    """Proactively block known malicious IPs using iptables."""
+    """Proactively block known malicious IPs using nftables."""
     if os.geteuid() != 0:
         return
     bad_ips = load_suspicious_ips()
     for ip in bad_ips:
         try:
             rc = subprocess.run(
-                ["iptables", "-C", "INPUT", "-s", ip, "-j", "DROP"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                ["nft", "list", "chain", "ip", "filter", "INPUT"],
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if rc.returncode != 0:
+                continue
+            if f"ip saddr {ip} drop" not in rc.stdout:
                 subprocess.run(
-                    ["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"],
+                    [
+                        "nft",
+                        "add",
+                        "rule",
+                        "ip",
+                        "filter",
+                        "INPUT",
+                        "ip",
+                        "saddr",
+                        ip,
+                        "drop",
+                    ],
                     check=False,
                 )
                 report.add("IP blocked", ip, level="crit")

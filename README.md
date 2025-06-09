@@ -140,7 +140,7 @@ database updated, which looks like the following:
 
 ## Project Goals
 
-This repository contains only a minimal proof-of-concept. The broader project goal is a full detection engine capable of analysing static binary features, kernel integrity hooks, system behaviour, persistence techniques and network patterns. The latest prototype now inspects systemd services, monitors network connections against a list of malicious IPs and can analyse static binary features using a gradient boosting model powered by **XGBoost** when available. Machine learning models complement rule-based heuristics for higher accuracy. The current release also applies this malicious IP list as an **IPS** rule set by inserting `iptables` drop rules for each address found in `malicious_ips.json`.
+This repository contains only a minimal proof-of-concept. The broader project goal is a full detection engine capable of analysing static binary features, kernel integrity hooks, system behaviour, persistence techniques and network patterns. The latest prototype now inspects systemd services, monitors network connections against a list of malicious IPs and can analyse static binary features using a gradient boosting model powered by **XGBoost** when available. Machine learning models complement rule-based heuristics for higher accuracy. The current release also applies this malicious IP list as an **IPS** rule set by inserting `nftables` drop rules for each address found in `malicious_ips.json`.
 
 ## Upcoming Features
 
