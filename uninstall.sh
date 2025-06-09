@@ -6,7 +6,7 @@ if [ "$(id -u)" != "0" ]; then
     exit 1
 fi
 
-logger -t sentinelroot "Starting SentinelRoot uninstallation"
+logger -t sentinelroot -- "Starting SentinelRoot uninstallation"
 
 SERVICES=(sentinelroot.service sentinelboot.service)
 for svc in "${SERVICES[@]}"; do
@@ -40,5 +40,5 @@ if command -v pip3 >/dev/null; then
     pip3 uninstall -y sentinelroot || true
 fi
 
-logger -t sentinelroot "SentinelRoot uninstalled successfully"
+logger -t sentinelroot -- "SentinelRoot uninstalled successfully"
 echo "Uninstallation complete. External scanner tools remain installed."

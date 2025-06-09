@@ -31,6 +31,7 @@ def main():
                 "user.err",
                 "-t",
                 "sentinelroot",
+                "--",
                 msg,
             ], check=False)
         except Exception:
