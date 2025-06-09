@@ -2,6 +2,7 @@ import curses
 import subprocess
 import time
 from typing import List
+import re
 
 LOG_TAG = "sentinelroot"
 
@@ -20,12 +21,45 @@ def read_dmesg_lines() -> List[str]:
 HEADER = "SentinelRoot Heuristic Report (press 'q' to quit)"
 INTERVAL = 60  # seconds between heuristic runs
 
+LEVEL_RE = re.compile(r"^\S+\s+:([a-z]+)")
+
+
+def parse_level(line: str) -> str:
+    """Extract log level from a dmesg line."""
+    m = LEVEL_RE.match(line)
+    return m.group(1) if m else ""
+
+
+def level_attr(level: str) -> int:
+    level = level.lower()
+    if level in {"emerg", "alert", "crit", "err"}:
+        return curses.color_pair(1) | curses.A_BOLD
+    if level == "warn":
+        return curses.color_pair(2) | curses.A_BOLD
+    if level == "notice":
+        return curses.color_pair(3) | curses.A_BOLD
+    if level == "debug":
+        return curses.A_DIM
+    return curses.A_NORMAL
+
+
+def init_colors() -> None:
+    if not curses.has_colors():
+        return
+    curses.start_color()
+    curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_RED, -1)
+    curses.init_pair(2, curses.COLOR_YELLOW, -1)
+    curses.init_pair(3, curses.COLOR_CYAN, -1)
+
 
 def draw_lines(stdscr, lines, scroll):
     height, width = stdscr.getmaxyx()
     visible = lines[scroll: scroll + height]
     for idx, line in enumerate(visible):
-        stdscr.addnstr(idx, 0, line, width - 1)
+        level = parse_level(line)
+        attr = level_attr(level)
+        stdscr.addnstr(idx, 0, line, width - 1, attr)
     total = len(lines)
     if total > height:
         bar_height = max(1, height * height // total)
@@ -64,6 +98,7 @@ def append_report(lines):
 def main(stdscr):
     curses.curs_set(0)
     stdscr.nodelay(True)
+    init_colors()
     lines = [HEADER, ""]
     append_report(lines)
     height, _ = stdscr.getmaxyx()
