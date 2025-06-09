@@ -17,7 +17,11 @@ def draw_lines(stdscr, lines, scroll):
         bar_pos = scroll * (height - bar_height) // (total - height)
         for i in range(height):
             attr = curses.A_REVERSE if bar_pos <= i < bar_pos + bar_height else curses.A_DIM
-            stdscr.addch(i, width - 1, ' ', attr)
+            if width > 0:
+                try:
+                    stdscr.addch(i, width - 1, ' ', attr)
+                except curses.error:
+                    pass
 
 
 def append_report(lines):
