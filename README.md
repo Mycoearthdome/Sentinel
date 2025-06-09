@@ -48,6 +48,17 @@ white or green.
 sudo ./install.sh
 ```
 
+## Uninstallation
+
+Run the `uninstall.sh` script to remove the services and installed files:
+
+```bash
+sudo ./uninstall.sh
+```
+
+All SentinelRoot data and systemd units are deleted while external scanners remain installed.
+
+
 ## Python Heuristic Prototype Usage
 
 ```bash
