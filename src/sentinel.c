@@ -325,6 +325,40 @@ static void check_network_patterns(void) {
         check_fd_inodes(bad, count, "Bad IP connection");
 }
 
+static int nft_rule_exists(const char *ip) {
+    FILE *p = popen("nft list chain ip filter INPUT", "r");
+    if (!p) return 0;
+    char line[256];
+    char rule[80];
+    snprintf(rule, sizeof(rule), "ip saddr %s drop", ip);
+    int found = 0;
+    while (fgets(line, sizeof(line), p)) {
+        if (strstr(line, rule)) {
+            found = 1;
+            break;
+        }
+    }
+    pclose(p);
+    return found;
+}
+
+static void apply_ip_blocklist(void) {
+    if (geteuid() != 0) return;
+    char ips[256][64];
+    int icount = load_ips(BAD_IPS_FILE, ips, 256);
+    if (icount <= 0) return;
+    for (int i = 0; i < icount; i++) {
+        if (!nft_rule_exists(ips[i])) {
+            char cmd[128];
+            snprintf(cmd, sizeof(cmd),
+                     "nft add rule ip filter INPUT ip saddr %s drop",
+                     ips[i]);
+            if (system(cmd) == 0)
+                syslog(LOG_CRIT, "IP blocked: %s", ips[i]);
+        }
+    }
+}
+
 static void check_kernel_kprobes(void) {
     const char *path = "/sys/kernel/debug/kprobes/list";
     FILE *f = fopen(path, "r");
@@ -486,6 +520,7 @@ int main(void) {
     check_persistence();
     check_systemd_services();
     check_network_patterns();
+    apply_ip_blocklist();
     check_kernel_kprobes();
     check_suspicious_cmdline();
     check_process_resources();
