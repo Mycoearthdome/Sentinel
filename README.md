@@ -67,7 +67,8 @@ Press `q` to exit the interface. This provides the same heuristic report as the
 standard Python script but in a fullscreen terminal view.
 
 A separate TUI shows the kernel ring buffer from `dmesg` with colorized log
-levels and updates every second:
+levels, filtered to the `sentinelroot` tag, and updates every second with
+automatic scrolling when new log entries arrive:
 
 ```bash
 python -m sentinelroot.dmesg_viewer
