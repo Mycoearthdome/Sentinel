@@ -8,7 +8,7 @@ fi
 
 logger -t sentinelroot -- "Starting SentinelRoot uninstallation"
 
-SERVICES=(sentinelroot.service sentinelboot.service)
+SERVICES=(sentinelroot.service sentinelboot.service sentineltrain.service)
 for svc in "${SERVICES[@]}"; do
     systemctl stop "$svc" 2>/dev/null || true
     systemctl disable "$svc" 2>/dev/null || true

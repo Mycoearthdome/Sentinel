@@ -36,9 +36,11 @@ if [ "$(id -u)" = "0" ]; then
     fi
     install -m 644 sentinelroot.service /etc/systemd/system/
     install -m 644 sentinelboot.service /etc/systemd/system/
+    install -m 644 sentineltrain.service /etc/systemd/system/
     systemctl daemon-reload
     systemctl enable sentinelroot.service
     systemctl enable sentinelboot.service
+    systemctl enable sentineltrain.service
     systemctl start sentinelroot.service
     systemctl start sentinelboot.service
     # weekly signature update cron job

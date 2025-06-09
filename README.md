@@ -104,10 +104,12 @@ service. The service runs the `sentinel.py` module in looping mode
 failure. The unit file explicitly specifies `User=root` so the
 heuristics have the permissions required to inspect system resources. The
 installer also sets up a `sentinelboot` service that
-runs the `boot_protect.py` module with `python3`. On first boot the script
-backs up the entire `/boot` partition to a SQLite database. This service also
-executes as `root` so it can access and restore the boot partition. On every boot the
-checksums are verified and the partition is restored with ``dd`` whenever any
+runs the `boot_protect.py` module with `python3`. A `sentineltrain` oneshot
+service is also installed so the `train.py` module executes on the next reboot.
+On first boot the script backs up the entire `/boot` partition to a SQLite
+database. This service also executes as `root` so it can access and restore the
+boot partition. On every boot the checksums are verified and the partition is
+restored with ``dd`` whenever any
 changes are detected.
 
 ## External Scanner Integration

@@ -1,0 +1,11 @@
+[Unit]
+Description=SentinelRoot Model Training
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 -m sentinelroot.train
+
+[Install]
+WantedBy=multi-user.target
