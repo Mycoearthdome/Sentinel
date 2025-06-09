@@ -38,6 +38,11 @@ the available package manager to install `rkhunter`, `chkrootkit`, `lynis`,
 All detections from the Python heuristics are automatically sent to syslog via
 the `logger` command using the tag `sentinelroot`.  Messages can be inspected
 with `dmesg` or in `/var/log/syslog`.
+Log entries now include a syslog *severity* such as `emerg`, `alert`,
+`crit`, `err`, `warn`, `notice`, `info` or `debug`.  The
+`dmesg_viewer` script colorizes lines according to these levels so that
+critical issues stand out in red while informational messages appear in
+white or green.
 
 ```bash
 sudo ./install.sh
@@ -73,6 +78,9 @@ automatic scrolling when new log entries arrive:
 ```bash
 python -m sentinelroot.dmesg_viewer
 ```
+
+Log lines are highlighted based on their syslog severity so that warnings and
+errors are easy to spot while scrolling.
 
 Use the arrow keys or PageUp/PageDown to scroll.  Press `q` to exit.
 

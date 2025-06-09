@@ -25,7 +25,14 @@ def main():
         msg = f"Failed to fetch signature data: {e}"
         print(msg, file=sys.stderr)
         try:
-            subprocess.run(["logger", "-t", "sentinelroot", msg], check=False)
+            subprocess.run([
+                "logger",
+                "-p",
+                "user.err",
+                "-t",
+                "sentinelroot",
+                msg,
+            ], check=False)
         except Exception:
             pass
         return 1
