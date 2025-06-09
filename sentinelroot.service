@@ -7,7 +7,7 @@ Type=simple
 User=root
 # Run the Python module directly to prevent using any
 # previously compiled binaries that may exist.
-ExecStart=/usr/bin/python3 -m sentinelroot.sentinel
+ExecStart=/usr/bin/python3 -m sentinelroot.sentinel --loop
 Restart=on-failure
 
 [Install]
