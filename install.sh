@@ -1,5 +1,8 @@
 #!/bin/bash
-set -e
+# Exit immediately on error, treat unset variables as an error and
+# propagate failures through pipes so that the script halts when any
+# step fails.
+set -euo pipefail
 PKGS="rkhunter chkrootkit lynis maldet ossec-hids clamav clamav-freshclam"
 
 if [ "$(id -u)" = "0" ]; then
@@ -15,10 +18,10 @@ if [ "$(id -u)" = "0" ]; then
     else
         echo "No supported package manager found. Install $PKGS manually." >&2
     fi
-    pip3 install -r requirements.txt
+    python3 -m pip install -r requirements.txt
     # Register the Python package so modules can be executed with
     # "python -m sentinelroot.*" from any directory.
-    pip3 install --upgrade .
+    python3 -m pip install --upgrade .
 else
     echo "Run as root to install system packages."
 fi

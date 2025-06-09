@@ -33,8 +33,9 @@ Run the provided `install.sh` script to install the Python service and all
 dependencies. The script detects `apt`, `yum`, `zypper` or `aptitude` and uses
 the available package manager to install `rkhunter`, `chkrootkit`, `lynis`,
 `maldet`, `clamav` and `ossec-hids` along with the Python modules from
-`requirements.txt`. The installer also registers `sentinelroot` as a Python
-package so the commands `python -m sentinelroot.tui` and
+`requirements.txt`.  During installation the script calls `python3 -m pip
+install --upgrade .` which executes `setup.py` and registers the
+`sentinelroot` package so the commands `python -m sentinelroot.tui` and
 `python -m sentinelroot.dmesg_viewer` work from any directory.
 
 All detections from the Python heuristics are automatically sent to syslog via
