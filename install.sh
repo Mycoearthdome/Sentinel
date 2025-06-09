@@ -39,6 +39,8 @@ if [ "$(id -u)" = "0" ]; then
     systemctl daemon-reload
     systemctl enable sentinelroot.service
     systemctl enable sentinelboot.service
+    systemctl start sentinelroot.service
+    systemctl start sentinelboot.service
     # weekly signature update cron job
     cat >/etc/cron.d/sentinelroot_update <<'EOF'
 0 3 * * 0 root /usr/bin/python3 -m sentinelroot.update_signatures >> /var/log/sentinel_update.log 2>&1
