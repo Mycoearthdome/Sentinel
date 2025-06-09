@@ -28,6 +28,17 @@ from .db import (
 )
 from .train import train_models
 import threading
+
+LEVELS = {
+    "emerg",
+    "alert",
+    "crit",
+    "err",
+    "warn",
+    "notice",
+    "info",
+    "debug",
+}
 EVIL_PROCESS_SIGNATURES.extend(load_signatures())
 EVIL_MODULE_SIGNATURES = ["evilmod", "badmodule"]
 import shutil
@@ -46,19 +57,29 @@ def start_background_training() -> None:
     def _worker() -> None:
         try:
             train_models(model_path=model_path)
-            subprocess.run([
-                "logger",
-                "-t",
-                LOG_TAG,
-                "ML training complete - model ready",
-            ], check=False)
+            subprocess.run(
+                [
+                    "logger",
+                    "-p",
+                    "user.notice",
+                    "-t",
+                    LOG_TAG,
+                    "ML training complete - model ready",
+                ],
+                check=False,
+            )
         except Exception as e:
-            subprocess.run([
-                "logger",
-                "-t",
-                LOG_TAG,
-                f"ML training failed: {e}",
-            ], check=False)
+            subprocess.run(
+                [
+                    "logger",
+                    "-p",
+                    "user.err",
+                    "-t",
+                    LOG_TAG,
+                    f"ML training failed: {e}",
+                ],
+                check=False,
+            )
 
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()
@@ -72,11 +93,19 @@ class DetectionResult:
 class SentinelReport:
     results: List[DetectionResult] = field(default_factory=list)
 
-    def add(self, issue: str, details: str):
+    def add(self, issue: str, details: str, level: str = "info"):
+        level = level if level in LEVELS else "info"
         message = f"{issue}: {details}"
         self.results.append(DetectionResult(issue, details))
         try:
-            subprocess.run(["logger", "-t", LOG_TAG, message], check=False)
+            subprocess.run([
+                "logger",
+                "-p",
+                f"user.{level}",
+                "-t",
+                LOG_TAG,
+                message,
+            ], check=False)
         except Exception:
             pass
 
@@ -87,12 +116,12 @@ class SentinelReport:
 def check_ld_preload(report: SentinelReport):
     preload_env = os.environ.get("LD_PRELOAD")
     if preload_env:
-        report.add("LD_PRELOAD env", preload_env)
+        report.add("LD_PRELOAD env", preload_env, level="warn")
     try:
         with open("/etc/ld.so.preload", "r") as f:
             content = f.read().strip()
             if content:
-                report.add("ld.so.preload", content)
+                report.add("ld.so.preload", content, level="warn")
     except FileNotFoundError:
         pass
 
@@ -100,36 +129,40 @@ def check_tmp_exec(report: SentinelReport):
     for proc in psutil.process_iter(['pid', 'exe']):
         exe = proc.info.get('exe')
         if exe and any(exe.startswith(p) for p in ("/tmp", "/dev", "/run")):
-            report.add("Executable from tmp", f"PID {proc.pid}: {exe}")
+            report.add(
+                "Executable from tmp",
+                f"PID {proc.pid}: {exe}",
+                level="warn",
+            )
 
 def check_hidden_modules(report: SentinelReport):
     try:
         lsmod_output = subprocess.check_output(['lsmod'], text=True)
         listed = {line.split()[0] for line in lsmod_output.strip().splitlines()[1:]}
     except Exception as e:
-        report.add("lsmod error", str(e))
+        report.add("lsmod error", str(e), level="err")
         return
     try:
         with open('/proc/modules') as f:
             modules = {line.split()[0] for line in f.readlines()}
     except Exception as e:
-        report.add("/proc/modules error", str(e))
+        report.add("/proc/modules error", str(e), level="err")
         return
     hidden = modules - listed
     for mod in hidden:
-        report.add("Hidden module", mod)
+        report.add("Hidden module", mod, level="warn")
 
 def check_hidden_processes(report: SentinelReport):
     try:
         ps_output = subprocess.check_output(['ps', '-e', '-o', 'pid'], text=True)
         pids_ps = {int(pid) for pid in ps_output.strip().splitlines()[1:]}
     except Exception as e:
-        report.add("ps error", str(e))
+        report.add("ps error", str(e), level="err")
         return
     pids_proc = {int(pid) for pid in os.listdir('/proc') if pid.isdigit()}
     hidden = pids_proc - pids_ps
     for pid in sorted(hidden):
-        report.add("Hidden process", f"PID {pid}")
+        report.add("Hidden process", f"PID {pid}", level="warn")
 
 def check_raw_sockets(report: SentinelReport):
     seen = set()
@@ -143,9 +176,9 @@ def check_raw_sockets(report: SentinelReport):
                         name = psutil.Process(pid).name()
                     except Exception:
                         name = 'unknown'
-                    report.add("Raw socket", f"PID {pid} ({name})")
+                    report.add("Raw socket", f"PID {pid} ({name})", level="warn")
     except Exception as e:
-        report.add("raw socket check error", str(e))
+        report.add("raw socket check error", str(e), level="err")
 
 def check_suspicious_ports(report: SentinelReport):
     """Check for listening ports commonly used by malware."""
@@ -158,9 +191,13 @@ def check_suspicious_ports(report: SentinelReport):
                     name = psutil.Process(pid).name() if pid else 'unknown'
                 except Exception:
                     name = 'unknown'
-                report.add("Suspicious port", f"PID {pid} ({name}) listening on {conn.laddr.port}")
+                report.add(
+                    "Suspicious port",
+                    f"PID {pid} ({name}) listening on {conn.laddr.port}",
+                    level="warn",
+                )
     except Exception as e:
-        report.add("port check error", str(e))
+        report.add("port check error", str(e), level="err")
 
 def check_persistence(report: SentinelReport):
     paths = [
@@ -176,9 +213,13 @@ def check_persistence(report: SentinelReport):
             with open(path, 'r', errors='ignore') as f:
                 data = f.read()
             if any(s in data for s in suspicious):
-                report.add("Persistence file", f"{path} contains suspicious entry")
+                report.add(
+                    "Persistence file",
+                    f"{path} contains suspicious entry",
+                    level="warn",
+                )
         except Exception as e:
-            report.add("persistence check error", f"{path}: {e}")
+            report.add("persistence check error", f"{path}: {e}", level="err")
 
 def check_systemd_services(report: SentinelReport):
     """Look for suspicious commands in systemd service files."""
@@ -196,7 +237,7 @@ def check_systemd_services(report: SentinelReport):
                     with open(path, 'r', errors='ignore') as f:
                         text = f.read()
                     if any(k in text for k in keywords):
-                        report.add('Suspicious service', path)
+                        report.add('Suspicious service', path, level='warn')
                 except Exception:
                     continue
 
@@ -240,7 +281,11 @@ def check_network_patterns(report: SentinelReport):
                 name = psutil.Process(pid).name() if pid else 'unknown'
             except Exception:
                 name = 'unknown'
-            report.add('Bad IP connection', f'PID {pid} ({name}) -> {conn.raddr.ip}')
+            report.add(
+                'Bad IP connection',
+                f'PID {pid} ({name}) -> {conn.raddr.ip}',
+                level='warn',
+            )
 
 def check_kernel_kprobes(report: SentinelReport):
     path = '/sys/kernel/debug/kprobes/list'
@@ -250,9 +295,9 @@ def check_kernel_kprobes(report: SentinelReport):
         with open(path) as f:
             lines = [l.strip() for l in f if l.strip()]
         for line in lines:
-            report.add('kprobe', line)
+            report.add('kprobe', line, level='warn')
     except Exception as e:
-        report.add('kprobe error', str(e))
+        report.add('kprobe error', str(e), level='err')
 
 def check_ml_signatures(report: SentinelReport):
     """Run ML classifier on running executable paths if model is available."""
@@ -263,7 +308,7 @@ def check_ml_signatures(report: SentinelReport):
     try:
         clf.load(model_path)
     except Exception as e:
-        report.add("ml load error", str(e))
+        report.add("ml load error", str(e), level="err")
         return
     executables = []
     for proc in psutil.process_iter(['exe']):
@@ -276,9 +321,9 @@ def check_ml_signatures(report: SentinelReport):
         scores = clf.predict(executables)
         for exe, score in zip(executables, scores):
             if score > 0.8:
-                report.add("ML suspicious", f"{exe} score={score:.2f}")
+                report.add("ML suspicious", f"{exe} score={score:.2f}", level="warn")
     except Exception as e:
-        report.add("ml predict error", str(e))
+        report.add("ml predict error", str(e), level="err")
 
 def check_static_binaries(report: SentinelReport):
     model_path = os.path.join(os.path.dirname(__file__), 'static_model.joblib')
@@ -288,7 +333,7 @@ def check_static_binaries(report: SentinelReport):
     try:
         clf.load(model_path)
     except Exception as e:
-        report.add('static ml load error', str(e))
+        report.add('static ml load error', str(e), level='err')
         return
     extractor = BinaryFeatureExtractor()
     for proc in psutil.process_iter(['exe']):
@@ -301,9 +346,9 @@ def check_static_binaries(report: SentinelReport):
         try:
             score = clf.predict([list(feats.values())])[0]
             if score > 0.8:
-                report.add('Static suspicious', f'{exe} score={score:.2f}')
+                report.add('Static suspicious', f'{exe} score={score:.2f}', level='warn')
         except Exception as e:
-            report.add('static predict error', str(e))
+            report.add('static predict error', str(e), level='err')
 
 def check_suspicious_cmdline(report: SentinelReport):
     """Detect processes started with suspicious command line arguments."""
@@ -312,7 +357,11 @@ def check_suspicious_cmdline(report: SentinelReport):
         try:
             cmdline = ' '.join(proc.info.get('cmdline') or [])
             if any(k in cmdline for k in keywords):
-                report.add("Suspicious cmdline", f"PID {proc.pid}: {cmdline}")
+                report.add(
+                    "Suspicious cmdline",
+                    f"PID {proc.pid}: {cmdline}",
+                    level="warn",
+                )
         except Exception:
             continue
 
@@ -332,9 +381,17 @@ def check_process_resources(report: SentinelReport, cpu_thresh: float = 80.0, me
             cpu = proc.cpu_percent(interval=0.1)
             mem = proc.memory_percent()
             if cpu > cpu_thresh:
-                report.add("High CPU", f"PID {proc.pid} ({proc.info.get('name')}) {cpu:.1f}%")
+                report.add(
+                    "High CPU",
+                    f"PID {proc.pid} ({proc.info.get('name')}) {cpu:.1f}%",
+                    level="warn",
+                )
             if mem > mem_thresh:
-                report.add("High memory", f"PID {proc.pid} ({proc.info.get('name')}) {mem:.1f}%")
+                report.add(
+                    "High memory",
+                    f"PID {proc.pid} ({proc.info.get('name')}) {mem:.1f}%",
+                    level="warn",
+                )
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
 
@@ -346,7 +403,11 @@ def check_known_process_signatures(report: SentinelReport):
             exe = proc.info.get('exe') or ''
             target = name + ' ' + exe
             if any(sig in target for sig in EVIL_PROCESS_SIGNATURES):
-                report.add("Known bad process", f"PID {proc.pid}: {target.strip()}")
+                report.add(
+                    "Known bad process",
+                    f"PID {proc.pid}: {target.strip()}",
+                    level="warn",
+                )
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
 
@@ -359,7 +420,7 @@ def block_remote_ips(pid: int, report: SentinelReport):
         for conn in p.connections(kind='inet'):
             if conn.raddr:
                 ip = conn.raddr.ip
-                report.add("Blocked IP", ip)
+                report.add("Blocked IP", ip, level="crit")
                 child = os.fork()
                 if child == 0:
                     rc = 0
@@ -380,11 +441,11 @@ def block_remote_ips(pid: int, report: SentinelReport):
                 else:
                     _, status = os.waitpid(child, 0)
                     if status != 0:
-                        report.add("iptables error", ip)
+                        report.add("iptables error", ip, level="err")
                     else:
                         add_suspicious_ip(ip)
     except Exception as e:
-        report.add("block ip error", f"PID {pid}: {e}")
+        report.add("block ip error", f"PID {pid}: {e}", level="err")
 
 
 def apply_ip_blocklist(report: SentinelReport) -> None:
@@ -404,7 +465,7 @@ def apply_ip_blocklist(report: SentinelReport) -> None:
                     ["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"],
                     check=False,
                 )
-                report.add("IP blocked", ip)
+                report.add("IP blocked", ip, level="crit")
         except Exception:
             continue
 
@@ -418,9 +479,13 @@ def kill_evil_processes(report: SentinelReport):
             if any(sig in target for sig in EVIL_PROCESS_SIGNATURES):
                 block_remote_ips(proc.pid, report)
                 os.kill(proc.pid, signal.SIGKILL)
-                report.add("Killed process", f"PID {proc.pid}: {target.strip()}")
+                report.add(
+                    "Killed process",
+                    f"PID {proc.pid}: {target.strip()}",
+                    level="crit",
+                )
         except Exception as e:
-            report.add("Kill error", f"PID {proc.pid}: {e}")
+            report.add("Kill error", f"PID {proc.pid}: {e}", level="err")
 
 
 def sha256_file(path: str) -> str:
@@ -438,12 +503,12 @@ def reinstall_tool(name: str, report: SentinelReport) -> None:
     """Attempt to reinstall a tool using the system package manager."""
     apt = shutil.which("apt-get") or shutil.which("apt")
     if not apt:
-        report.add("reinstall unavailable", name)
+        report.add("reinstall unavailable", name, level="err")
         return
     try:
         subprocess.run([apt, "install", "--reinstall", "-y", name], check=False)
     except Exception as e:
-        report.add("reinstall error", f"{name}: {e}")
+        report.add("reinstall error", f"{name}: {e}", level="err")
 
 
 def verify_tool_integrity(name: str, path: str, report: SentinelReport) -> bool:
@@ -456,7 +521,7 @@ def verify_tool_integrity(name: str, path: str, report: SentinelReport) -> bool:
         store_tool_checksum(name, path, actual)
         return True
     if stored != actual:
-        report.add("Tool checksum mismatch", name)
+        report.add("Tool checksum mismatch", name, level="warn")
         reinstall_tool(name, report)
         new = sha256_file(path)
         store_tool_checksum(name, path, new)
@@ -491,10 +556,10 @@ def kill_priv_escalation_ports(report: SentinelReport):
                         paths = find_paths_by_checksum(checksum)
                         for p in paths:
                             if p != exe:
-                                report.add('Possible copy', p)
+                                report.add('Possible copy', p, level='notice')
                     block_remote_ips(proc.pid, report)
                     os.kill(proc.pid, signal.SIGKILL)
-                    report.add('Killed priv esc', f'PID {proc.pid}: {exe}')
+                    report.add('Killed priv esc', f'PID {proc.pid}: {exe}', level='crit')
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
 
@@ -504,22 +569,24 @@ def remove_evil_modules(report: SentinelReport):
         with open('/proc/modules') as f:
             modules = [line.split()[0] for line in f]
     except Exception as e:
-        report.add("module list error", str(e))
+        report.add("module list error", str(e), level="err")
         return
     for mod in modules:
         if any(sig in mod for sig in EVIL_MODULE_SIGNATURES):
             try:
                 subprocess.run(['rmmod', mod], check=True)
-                report.add("Removed module", mod)
+                report.add("Removed module", mod, level="crit")
             except Exception as e:
-                report.add("rmmod error", f"{mod}: {e}")
+                report.add("rmmod error", f"{mod}: {e}", level="err")
 
 
 def _log_lines(prefix: str, lines: List[str]):
     """Send lines to syslog using the logger command."""
     for line in lines:
         try:
-            subprocess.run(["logger", "-t", prefix, line], check=True)
+            subprocess.run(
+                ["logger", "-p", "user.debug", "-t", prefix, line], check=True
+            )
         except Exception:
             pass
 
@@ -531,7 +598,7 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
     os.makedirs(os.path.dirname(flag), exist_ok=True)
     Path(flag).touch()
     if high_system_load():
-        report.add("High system load", "Skipping external scanners")
+        report.add("High system load", "Skipping external scanners", level="notice")
         return
 
     scanners = {
@@ -555,7 +622,7 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
     for name, cmd in scanners.items():
         exe = cmd[0]
         if not shutil.which(exe) and not os.path.exists(exe):
-            report.add(f"{name} not found", "")
+            report.add(f"{name} not found", "", level="notice")
             continue
         path = exe if os.path.isabs(exe) else shutil.which(exe) or exe
         if not verify_tool_integrity(name, path, report):
@@ -565,7 +632,7 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
             lines = out.strip().splitlines()
             _log_lines(f"sentinelroot-{name}", lines)
             if lines:
-                report.add(f"{name} output", lines[0])
+                report.add(f"{name} output", lines[0], level="info")
             if name == "maldet":
                 scan_id = None
                 for line in lines:
@@ -577,9 +644,9 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
                         rep = subprocess.check_output(["maldet", "--report", scan_id], text=True, stderr=subprocess.STDOUT)
                         _log_lines("sentinelroot-maldet", rep.strip().splitlines())
                     except Exception as e:
-                        report.add("maldet report error", str(e))
+                        report.add("maldet report error", str(e), level="err")
         except Exception as e:
-            report.add(f"{name} error", str(e))
+            report.add(f"{name} error", str(e), level="err")
 
     try:
         dmesg_out = subprocess.check_output(["dmesg", "--ctime", "--since", "now-1min"], text=True)
@@ -590,7 +657,7 @@ def run_external_scanners(report: SentinelReport, flag: str = "/var/lib/sentinel
 def run_heuristics() -> SentinelReport:
     report = SentinelReport()
     if high_system_load():
-        report.add("High system load", "Skipping heuristic run")
+        report.add("High system load", "Skipping heuristic run", level="notice")
         return report
     check_ld_preload(report)
     check_tmp_exec(report)
