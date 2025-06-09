@@ -3,6 +3,8 @@ Description=SentinelRoot Heuristic Monitor
 
 [Service]
 Type=simple
+# Run as root to ensure access to system resources
+User=root
 # Run the Python module directly to prevent using any
 # previously compiled binaries that may exist.
 ExecStart=/usr/bin/python3 -m sentinelroot.sentinel
