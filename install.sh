@@ -23,7 +23,14 @@ fi
 if [ "$(id -u)" = "0" ]; then
     mkdir -p /usr/local/share/sentinelroot
     cp -r sentinelroot/* /usr/local/share/sentinelroot/
-    install -m 755 sentinelroot/boot_protect.py /usr/local/bin/sentinelboot
+    # Copy the boot protection script but do not install a separate
+    # executable wrapper so the service always invokes the Python code.
+    install -m 755 sentinelroot/boot_protect.py /usr/local/share/sentinelroot/
+    # Remove any previously installed compiled version of sentinelboot
+    # that may exist from older releases.
+    if [ -f /usr/local/bin/sentinelboot ]; then
+        rm -f /usr/local/bin/sentinelboot
+    fi
     install -m 644 sentinelroot.service /etc/systemd/system/
     install -m 644 sentinelboot.service /etc/systemd/system/
     systemctl daemon-reload

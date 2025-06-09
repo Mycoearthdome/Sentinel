@@ -4,7 +4,9 @@ After=local-fs.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/sentinelboot
+# Explicitly run the Python implementation to avoid
+# any stale compiled binaries.
+ExecStart=/usr/bin/python3 /usr/local/share/sentinelroot/boot_protect.py
 
 [Install]
 WantedBy=multi-user.target

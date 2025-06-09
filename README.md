@@ -89,9 +89,10 @@ Use the arrow keys or PageUp/PageDown to scroll.  Press `q` to exit.
 The provided `install.sh` script installs the Python heuristics to
 `/usr/local/share/sentinelroot` and configures a `sentinelroot` systemd
 service. The service runs the `sentinel.py` module with `python3` and logs
-results to syslog. The installer also deploys `sentinelboot`, which backs up the
-entire `/boot` partition to a SQLite database on first run. On every boot the
-script verifies file checksums and restores the partition using ``dd`` when any
+results to syslog. The installer also sets up a `sentinelboot` service that
+runs the `boot_protect.py` module with `python3`. On first boot the script
+backs up the entire `/boot` partition to a SQLite database. On every boot the
+checksums are verified and the partition is restored with ``dd`` whenever any
 changes are detected.
 
 ## External Scanner Integration
