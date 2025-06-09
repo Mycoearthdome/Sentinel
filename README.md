@@ -66,6 +66,15 @@ python -m sentinelroot.tui
 Press `q` to exit the interface. This provides the same heuristic report as the
 standard Python script but in a fullscreen terminal view.
 
+A separate TUI shows the kernel ring buffer from `dmesg` with colorized log
+levels and updates every second:
+
+```bash
+python -m sentinelroot.dmesg_viewer
+```
+
+Use the arrow keys or PageUp/PageDown to scroll.  Press `q` to exit.
+
 ## C Service
 
 A C implementation replicates the heuristic checks and logs results to syslog. Build and install it using:`install.sh`:
