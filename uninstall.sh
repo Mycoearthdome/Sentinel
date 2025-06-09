@@ -37,6 +37,7 @@ rm -f /var/log/sentinel_update.log
 
 if command -v pip3 >/dev/null; then
     xargs -r pip3 uninstall -y < requirements.txt || true
+    pip3 uninstall -y sentinelroot || true
 fi
 
 logger -t sentinelroot "SentinelRoot uninstalled successfully"

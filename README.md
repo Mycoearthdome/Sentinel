@@ -33,7 +33,9 @@ Run the provided `install.sh` script to install the Python service and all
 dependencies. The script detects `apt`, `yum`, `zypper` or `aptitude` and uses
 the available package manager to install `rkhunter`, `chkrootkit`, `lynis`,
 `maldet`, `clamav` and `ossec-hids` along with the Python modules from
-`requirements.txt`.
+`requirements.txt`. The installer also registers `sentinelroot` as a Python
+package so the commands `python -m sentinelroot.tui` and
+`python -m sentinelroot.dmesg_viewer` work from any directory.
 
 All detections from the Python heuristics are automatically sent to syslog via
 the `logger` command using the tag `sentinelroot`.  Messages can be inspected
@@ -94,6 +96,9 @@ automatic scrolling when new log entries arrive:
 ```bash
 python -m sentinelroot.dmesg_viewer
 ```
+
+These module invocations work from any directory once the installer has
+registered `sentinelroot` as a Python package.
 
 Log lines are highlighted based on their syslog severity so that warnings and
 errors are easy to spot while scrolling.

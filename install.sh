@@ -16,6 +16,9 @@ if [ "$(id -u)" = "0" ]; then
         echo "No supported package manager found. Install $PKGS manually." >&2
     fi
     pip3 install -r requirements.txt
+    # Register the Python package so modules can be executed with
+    # "python -m sentinelroot.*" from any directory.
+    pip3 install --upgrade .
 else
     echo "Run as root to install system packages."
 fi
@@ -23,9 +26,6 @@ fi
 if [ "$(id -u)" = "0" ]; then
     mkdir -p /usr/local/share/sentinelroot
     cp -r sentinelroot/* /usr/local/share/sentinelroot/
-    # Copy the boot protection script but do not install a separate
-    # executable wrapper so the service always invokes the Python code.
-    install -m 755 sentinelroot/boot_protect.py /usr/local/share/sentinelroot/
     # Remove any previously installed compiled version of sentinelboot
     # that may exist from older releases.
     if [ -f /usr/local/bin/sentinelboot ]; then
