@@ -14,6 +14,38 @@ import argparse
 # Start with built-in signatures but extend from the SQLite database when
 # available. This allows quick searches across distributions.
 EVIL_PROCESS_SIGNATURES = ["evilproc", "badproc"]
+SAFE_X_PROCESS_NAMES = {
+    "Xorg",
+    "X",
+    "Xwayland",
+    "x-session-manager",
+    "Xsession",
+    "gdm",
+    "gdm3",
+    "gdm-x-session",
+    "lightdm",
+    "sddm",
+    "kdm",
+    "xdm",
+    "xsm",
+    "xinit",
+    "Xvnc",
+    "Xquartz",
+}
+
+
+def is_x_process(proc: psutil.Process) -> bool:
+    """Return True if a process should be exempt from termination."""
+    try:
+        name = proc.name()
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return False
+    try:
+        exe = proc.exe()
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        exe = ""
+    base = os.path.basename(exe) if exe else ""
+    return name in SAFE_X_PROCESS_NAMES or base in SAFE_X_PROCESS_NAMES
 from dataclasses import dataclass, field
 from typing import List
 from pathlib import Path
@@ -570,6 +602,13 @@ def kill_evil_processes(report: SentinelReport):
             exe = proc.info.get('exe') or ''
             target = name + ' ' + exe
             if any(sig in target for sig in EVIL_PROCESS_SIGNATURES):
+                if is_x_process(proc):
+                    report.add(
+                        "Skipped X process",
+                        f"PID {proc.pid}: {target.strip()}",
+                        level="notice",
+                    )
+                    continue
                 block_remote_ips(proc.pid, report)
                 os.kill(proc.pid, signal.SIGKILL)
                 report.add(
@@ -650,6 +689,13 @@ def kill_priv_escalation_ports(report: SentinelReport):
                         for p in paths:
                             if p != exe:
                                 report.add('Possible copy', p, level='notice')
+                    if is_x_process(proc):
+                        report.add(
+                            'Skipped X process',
+                            f'PID {proc.pid}: {exe}',
+                            level='notice',
+                        )
+                        continue
                     block_remote_ips(proc.pid, report)
                     os.kill(proc.pid, signal.SIGKILL)
                     report.add('Killed priv esc', f'PID {proc.pid}: {exe}', level='crit')
