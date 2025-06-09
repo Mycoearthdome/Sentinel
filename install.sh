@@ -19,10 +19,10 @@ if [ "$(id -u)" = "0" ]; then
 else
     echo "Run as root to install system packages."
 fi
-mkdir -p build
-cc -O2 -Wall -o build/sentinelroot src/sentinel.c
+
 if [ "$(id -u)" = "0" ]; then
-    install -m 755 build/sentinelroot /usr/local/bin/
+    mkdir -p /usr/local/share/sentinelroot
+    cp -r sentinelroot/* /usr/local/share/sentinelroot/
     install -m 755 sentinelroot/boot_protect.py /usr/local/bin/sentinelboot
     install -m 644 sentinelroot.service /etc/systemd/system/
     install -m 644 sentinelboot.service /etc/systemd/system/
@@ -42,5 +42,5 @@ EOF
     echo "Check logs with 'journalctl -t sentinelroot' or in /var/log/syslog"
     echo "Upcoming features: improved automation around signature updates and ML model retraining, and scheduled rkhunter scans."
 else
-    echo "Build finished. Run as root to install and enable the service."
+    echo "Run as root to install and enable the service."
 fi
