@@ -3,15 +3,17 @@ import subprocess
 import time
 from typing import List, Dict
 
+LOG_TAG = "sentinelroot"
+
 
 def read_dmesg_lines() -> List[str]:
-    """Return the full dmesg output split into lines."""
+    """Return dmesg lines related to SentinelRoot."""
     try:
         out = subprocess.check_output(
             ["dmesg", "-x", "-T", "--color=never"],
             text=True,
         )
-        return out.splitlines()
+        return [line for line in out.splitlines() if LOG_TAG in line]
     except Exception:
         return []
 
@@ -72,8 +74,11 @@ def main(stdscr) -> None:
     while True:
         now = time.time()
         if now - last_refresh >= 1:
+            prev_len = len(lines)
             lines = read_dmesg_lines()
-            if scroll > len(lines) - curses.LINES:
+            if len(lines) > prev_len and scroll >= prev_len - curses.LINES:
+                scroll = max(0, len(lines) - curses.LINES)
+            elif scroll > len(lines) - curses.LINES:
                 scroll = max(0, len(lines) - curses.LINES)
             last_refresh = now
 
