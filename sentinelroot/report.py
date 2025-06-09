@@ -1,6 +1,21 @@
 import curses
+import subprocess
 import time
-from .sentinel import run_heuristics
+from typing import List
+
+LOG_TAG = "sentinelroot"
+
+
+def read_dmesg_lines() -> List[str]:
+    """Return dmesg lines related to SentinelRoot."""
+    try:
+        out = subprocess.check_output(
+            ["dmesg", "-x", "-T", "--color=never"],
+            text=True,
+        )
+        return [line for line in out.splitlines() if LOG_TAG in line]
+    except Exception:
+        return []
 
 HEADER = "SentinelRoot Heuristic Report (press 'q' to quit)"
 INTERVAL = 60  # seconds between heuristic runs
@@ -24,12 +39,25 @@ def draw_lines(stdscr, lines, scroll):
                     pass
 
 
+_last_dmesg_len = 0
+
+
 def append_report(lines):
+    global _last_dmesg_len
+    from .sentinel import run_heuristics
+
     report = run_heuristics()
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
     summary = report.summary() or "No issues detected"
     lines.append(f"--- {ts} ---")
     lines.extend(summary.splitlines())
+    dmesg_lines = read_dmesg_lines()
+    if dmesg_lines:
+        new = dmesg_lines[_last_dmesg_len:]
+        if new:
+            lines.append("-- dmesg --")
+            lines.extend(new)
+        _last_dmesg_len = len(dmesg_lines)
     lines.append("")
 
 

@@ -35,17 +35,14 @@ the available package manager to install `rkhunter`, `chkrootkit`, `lynis`,
 `maldet`, `clamav` and `ossec-hids` along with the Python modules from
 `requirements.txt`.  During installation the script calls `python3 -m pip
 install --upgrade .` which executes `setup.py` and registers the
-`sentinelroot` package so the commands `python -m sentinelroot.tui` and
-`python -m sentinelroot.dmesg_viewer` work from any directory.
+`sentinelroot` package so the command `python -m sentinelroot.report` works
+from any directory.
 
 All detections from the Python heuristics are automatically sent to syslog via
 the `logger` command using the tag `sentinelroot`.  Messages can be inspected
 with `dmesg` or in `/var/log/syslog`.
 Log entries now include a syslog *severity* such as `emerg`, `alert`,
-`crit`, `err`, `warn`, `notice`, `info` or `debug`.  The
-`dmesg_viewer` script colorizes lines according to these levels so that
-critical issues stand out in red while informational messages appear in
-white or green.
+`crit`, `err`, `warn`, `notice`, `info` or `debug`.
 
 ```bash
 sudo ./install.sh
@@ -88,25 +85,13 @@ can be required for full functionality.
 A simple text-based user interface is available using Python's `curses` module:
 
 ```bash
-python -m sentinelroot.tui
+python -m sentinelroot.report
 ```
 
-Press `q` to exit the interface. This provides the same heuristic report as the
-standard Python script but in a fullscreen terminal view.
-
-A separate TUI shows the kernel ring buffer from `dmesg` with colorized log
-levels, filtered to the `sentinelroot` tag, and updates every second with
-automatic scrolling when new log entries arrive:
-
-```bash
-python -m sentinelroot.dmesg_viewer
-```
-
-These module invocations work from any directory once the installer has
+Press `q` to exit the interface. This fullscreen view now includes recent log
+lines from `dmesg` tagged with `sentinelroot` so warnings and errors are easy
+to spot. The module invocation works from any directory once the installer has
 registered `sentinelroot` as a Python package.
-
-Log lines are highlighted based on their syslog severity so that warnings and
-errors are easy to spot while scrolling.
 
 Use the arrow keys or PageUp/PageDown to scroll.  Press `q` to exit.
 

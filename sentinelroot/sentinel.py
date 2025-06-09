@@ -66,7 +66,7 @@ def start_background_training() -> None:
                 [
                     "logger",
                     "-p",
-                    "user.notice",
+                    "kern.notice",
                     "-t",
                     LOG_TAG,
                     "--",
@@ -79,7 +79,7 @@ def start_background_training() -> None:
                 [
                     "logger",
                     "-p",
-                    "user.err",
+                    "kern.err",
                     "-t",
                     LOG_TAG,
                     "--",
@@ -108,7 +108,7 @@ class SentinelReport:
             subprocess.run([
                 "logger",
                 "-p",
-                f"user.{level}",
+                f"kern.{level}",
                 "-t",
                 LOG_TAG,
                 "--",
@@ -678,7 +678,7 @@ def _log_lines(prefix: str, lines: List[str]):
     for line in lines:
         try:
             subprocess.run(
-                ["logger", "-p", "user.debug", "-t", prefix, "--", line], check=True
+                ["logger", "-p", "kern.debug", "-t", prefix, "--", line], check=True
             )
         except Exception:
             pass
