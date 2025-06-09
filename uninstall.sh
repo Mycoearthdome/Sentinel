@@ -21,6 +21,14 @@ for svc in "${SERVICES[@]}"; do
 done
 systemctl daemon-reload
 
+# Securely shred SQLite databases before removing directories
+DB_DIRS=(/usr/local/share/sentinelroot /var/lib/sentinelroot)
+for dir in "${DB_DIRS[@]}"; do
+    if [ -d "$dir" ]; then
+        find "$dir" -type f -name '*.db' -exec shred -fuxzn7 {} \;
+    fi
+done
+
 rm -rf /usr/local/share/sentinelroot
 rm -rf /var/lib/sentinelroot
 rm -f /usr/local/bin/sentinelboot
