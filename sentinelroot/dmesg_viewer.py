@@ -69,17 +69,19 @@ def main(stdscr) -> None:
     stdscr.nodelay(True)
     init_colors()
     lines = read_dmesg_lines()
-    scroll = max(0, len(lines) - curses.LINES)
+    height, _ = stdscr.getmaxyx()
+    scroll = max(0, len(lines) - height)
     last_refresh = time.time()
     while True:
         now = time.time()
         if now - last_refresh >= 1:
             prev_len = len(lines)
             lines = read_dmesg_lines()
-            if len(lines) > prev_len and scroll >= prev_len - curses.LINES:
-                scroll = max(0, len(lines) - curses.LINES)
-            elif scroll > len(lines) - curses.LINES:
-                scroll = max(0, len(lines) - curses.LINES)
+            height, _ = stdscr.getmaxyx()
+            if len(lines) > prev_len and scroll >= prev_len - height:
+                scroll = max(0, len(lines) - height)
+            elif scroll > len(lines) - height:
+                scroll = max(0, len(lines) - height)
             last_refresh = now
 
         stdscr.erase()
@@ -92,11 +94,14 @@ def main(stdscr) -> None:
         elif ch == curses.KEY_UP:
             scroll = max(0, scroll - 1)
         elif ch == curses.KEY_DOWN:
-            scroll = min(max(len(lines) - curses.LINES, 0), scroll + 1)
+            height, _ = stdscr.getmaxyx()
+            scroll = min(max(len(lines) - height, 0), scroll + 1)
         elif ch == curses.KEY_NPAGE:
-            scroll = min(max(len(lines) - curses.LINES, 0), scroll + curses.LINES)
+            height, _ = stdscr.getmaxyx()
+            scroll = min(max(len(lines) - height, 0), scroll + height)
         elif ch == curses.KEY_PPAGE:
-            scroll = max(0, scroll - curses.LINES)
+            height, _ = stdscr.getmaxyx()
+            scroll = max(0, scroll - height)
         time.sleep(0.05)
 
 
