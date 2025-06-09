@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinelroot"
+version = "0.1.0"
+description = "SentinelRoot heuristic monitoring tools"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.7"
+dependencies = [
+    "psutil>=5.9",
+    "requests",
+    "pandas",
+    "scikit-learn",
+    "xgboost",
+    "lief"
+]
+
+[project.scripts]
+sentinelroot = "sentinelroot.sentinel:main"
+sentinelboot = "sentinelroot.boot_protect:main"
+sentinel-update-signatures = "sentinelroot.update_signatures:main"
+sentinel-train = "sentinelroot.train:main"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+packages = ["sentinelroot"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"sentinelroot" = ["malicious_ips.json"]

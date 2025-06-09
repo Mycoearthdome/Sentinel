@@ -34,7 +34,7 @@ dependencies. The script detects `apt`, `yum`, `zypper` or `aptitude` and uses
 the available package manager to install `rkhunter`, `chkrootkit`, `lynis`,
 `maldet`, `clamav` and `ossec-hids` along with the Python modules from
 `requirements.txt`.  During installation the script calls `python3 -m pip
-install --upgrade .` which executes `setup.py` and registers the
+install --upgrade .` which uses the metadata in `pyproject.toml` and registers the
 `sentinelroot` package so the command `python -m sentinelroot.report` works
 from any directory.
 
